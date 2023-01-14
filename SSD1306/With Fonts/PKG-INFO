@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: micropython-ssd1306py
+Version: 1.0
+Summary: ssd1306 driver
+Home-page: https://github.com/jdhxyy/ssd1306py-micropython
+Author: jdh99
+Author-email: jdh821@163.com
+License: UNKNOWN
+Description: # micropython-ssd1306py
+        
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

@@ -1,0 +1,78 @@
+PIN:
+from machine import Pin
+p0 = Pin(0, Pin.OUT)    # create output pin on GPIO0
+p0.on()                 # set pin to "on" (high) level
+p0.off()                # set pin to "off" (low) level
+p0.value(1)             # set pin to on/high
+
+p2 = Pin(2, Pin.IN)     # create input pin on GPIO2
+print(p2.value())       # get value, 0 or 1
+
+p4 = Pin(4, Pin.IN, Pin.PULL_UP) # enable internal pull-up resistor
+p5 = Pin(5, Pin.OUT, value=1) # set pin high on creation
+
+
+GPIO:
+
+import rp2
+
+@rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
+def blink_1hz():
+    # Cycles: 1 + 7 + 32 * (30 + 1) = 1000
+    set(pins, 1)
+    set(x, 31)                  [6]
+    label("delay_high")
+    nop()                       [29]
+    jmp(x_dec, "delay_high")
+
+    # Cycles: 1 + 7 + 32 * (30 + 1) = 1000
+    set(pins, 0)
+    set(x, 31)                  [6]
+    label("delay_low")
+    nop()                       [29]
+    jmp(x_dec, "delay_low")
+
+# Create and start a StateMachine with blink_1hz, outputting on Pin(25)
+sm = rp2.StateMachine(0, blink_1hz, freq=2000, set_base=Pin(25))
+sm.active(1)
+
+
+ADC:
+RP2040 has five ADC channels in total, four of which are 12-bit SAR based ADCs: GP26, GP27, GP28 and GP29. The input signal for ADC0, ADC1, ADC2 and ADC3 can be connected with GP26, GP27, GP28, GP29 respectively (On Pico board, GP29 is connected to VSYS). The standard ADC range is 0-3.3V. The fifth channel is connected to the in-built temperature sensor and can be used for measuring the temperature.
+ADC Module 	GPIO Pins
+ADC0 	GP26
+ADC1 	GP27
+ADC2 	GP28
+
+Use the machine.ADC class:
+
+from machine import ADC, Pin
+adc = ADC(Pin(26))     # create ADC object on ADC pin
+adc.read_u16()         # read value, 0-65535 across voltage range 0.0v - 3.3v
+
+
+
+i2C:
+
+from machine import Pin, I2C
+
+i2c = I2C(0)   # default assignment: scl=Pin(9), sda=Pin(8)
+i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=400_000)
+
+
+PWM:
+
+from machine import Pin, PWM
+from time import sleep
+
+pwm = PWM(Pin(15))
+pwm.freq(1000)
+pwm.duty_u16(duty)
+
+
+
+Intrrupt
+
+nrf_int.irq(trigger=0)
+nrf_int = Pin(16, machine.Pin.IN) #,machine.Pin.PULL_DOWN
+nrf_int.irq(trigger=Pin.IRQ_FALLING, handler=nrf_action) #nrf_action = functie
