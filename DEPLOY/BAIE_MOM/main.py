@@ -9,6 +9,29 @@ from brightness_map import brightness_map
 adc = ADC(26)
 
 dimSetPoint = int(adc.read_u16()* 233 / 65000)
+
+#analogReadings = []
+analogReading = 0
+def analogReadings(self):
+    global analogReading,motion
+    average = 0
+    analogReadings = []
+    if motion.value() == 1:
+        return
+
+    for i in range(20):
+        analogReadings.append(int(adc.read_u16()* 233 / 65000))
+        analogReadings.pop(0)
+        
+        #print(f"Instant: {lightReadings[-1]};average: {old_average}")
+    #average = 0
+    
+    for value in analogReadings:
+        average = average + value/20
+        
+    if int(abs(average - analogReading)) > 3:
+            #print(f"Update: {int(average)}")
+        analogReading = int(average)
 #pwm_pin = Pin(15,Pin.OUT)
 #pwm_pin.low()
 
@@ -31,9 +54,8 @@ timer_blink = Timer()
 def blinkOnboardLed(timer):
     global led,adc,dimSetPoint
     led.toggle()
-    dimSetPoint = int(adc.read_u16()* 233 / 65000)
+    if abs(dimSetPoint - int(adc.read_u16()* 233 / 65000)) > 3:
 
-    
 timer_blink.init(period=1000, mode=Timer.PERIODIC, callback = blinkOnboardLed)
 
 time.sleep(2)
@@ -43,19 +65,12 @@ def dimToOff(timer):
     dim.dimToOff()
 
 #timer.init(freq=1, mode=Timer.PERIODIC, callback=blink)
-
+timer.init(period=1000, mode=Timer.ONE_SHOT, callback=analogReadings)   # Timer.ONE_SHOT . Period in m
 while True:
     if motion.value() == 1:
-        #led12.on()
-        #dimSetPoint = int(adc.read_u16()* 233 / 65000)
-        
-        #while not dim.atSetpoint1():
-        #    dim.dimStep()
-        #dim.dimToSetpoint()
         dim.setReqIndex1(dimSetPoint)
-        #print(brightness_map[dimSetPoint])
-        #pwm.duty_u16(brightness_map[dim])
-        timer.init(period=4*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in ms
+        timer.init(period=1*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
+        
         
     #led.toggle()
 #    led12.toggle()
