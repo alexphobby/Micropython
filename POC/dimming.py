@@ -1,4 +1,4 @@
-from machine import Pin, ADC
+from machine import Pin
 from machine import PWM
 from brightness_map import brightness_map
 

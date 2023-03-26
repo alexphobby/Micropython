@@ -1,0 +1,2 @@
+SSID = 'AlxPHome'
+PASSWORD = '741852963'

@@ -20,16 +20,19 @@ class MACHINES:
         self.guid = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
         
         if self.guid == "e6614103e763b337":
-            self.topic_receive = "to_a36_cam_mica"
-            self.topic_send = "from_a36_cam_mica"
-            print(f"Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+            self.device = "a36_cam_mica"
             
         elif self.guid == "e6614103e7739437":
-            self.topic_receive = "to_a36_cam_medie"
-            self.topic_send = "from_a36_cam_medie"
-            print(f"Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+            self.device = "a36_cam_medie"
+            
         else:
             print("Machine not defined")
+            
+        self.topic_receive = f"to_{self.device}"
+        self.topic_send = f"from_{self.device}"
+            
+        print(f"Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+
 
 machines = MACHINES()
 topic_receive = machines.topic_receive
@@ -226,8 +229,8 @@ last_run_time_receive = 0
 
 from mqtt import MQTTClient
 
-def mqttClient(ssl_enabled = False):
-    client = MQTTClient(client_id=b"alexp_picow",
+def mqttClient(ssl_enabled = False,name="pico"):
+    client = MQTTClient(client_id=b"" + name,
     server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
     port=8883,
     user=b"apanoiu",
@@ -243,15 +246,15 @@ def mqttClient(ssl_enabled = False):
 def publish(topic_send, value):
     global client
     #print(topic)
-    #print(value)
+    #print(f"Sending to {topic_send} Message: {value}")
     client.publish(topic_send, value)
     #print("publish Done")
 
 
-client = mqttClient(True)
+client = mqttClient(True,machines.device)
 def sendTemperature(sender):
     global topic_send
-#    print(f"sendTemperature function called by {sender}")
+    print(f"sendTemperature function called by {sender}")
     publish(topic_send, f"temperature:{read_temperature()}")
     publish(topic_send, f"humidity:{read_humidity()}")
     publish(topic_send, f"ambient:{read_light()}")
@@ -272,7 +275,7 @@ def sub_cb(topic, msg):
             print("Lights OFF")
             #publish('picow/frompico', f"Received:{msg}")
         elif msg == b'sendTemperature':
-            last_run_time_send = 0
+            #last_run_time_send = 0
             locals()[msg.decode()]("mqtt")
             
         #elif: msg.contains
@@ -316,7 +319,17 @@ while err or retry_count == 0:
     except:
         retry_count-=1
         print(f"err ntp, retry count: {retry_count}")
-        
+
+
+
+try:
+            
+    client.ping()
+    sendTemperature("Init")
+except Exception as ex:
+    print(f"Error sending to MQ: {ex}")
+    client.connect()
+            
 while True:
     #time.sleep(0.5)
 
@@ -349,7 +362,7 @@ while True:
         
     
     
-    if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 30000:
+    if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 300000:
         last_run_time_send = tmp
         try:
             
@@ -358,7 +371,7 @@ while True:
             #publish('fromCMica', f"t:{read_temperature()}")
             #publish('fromCMica', f"h:{read_humidity()}")
             #publish('fromCMica', f"l:{read_light()}")
-            sendTemperature("30s loop")
+            sendTemperature("300s loop")
             
         except Exception as ex:
             print(f"Error sending to MQ: {ex}")
