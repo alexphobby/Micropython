@@ -13,7 +13,9 @@ dimSetPoint = int(adc.read_u16()* 233 / 65000)
 #analogReadings = []
 analogReading = 0
 def analogReadings(self):
-    global analogReadings,analogReading,motion
+    global analogReading,motion
+    average = 0
+    analogReadings = []
     if motion.value() == 1:
         return
 
