@@ -1,6 +1,8 @@
 import urequests
 
 import machine
+from machine import Pin,PWM
+
 import time
 import utime
 import ntptime
@@ -10,12 +12,37 @@ import sys
 import ubinascii
 
 import random
+
+time.sleep(4)
+
 machine_id = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
 #sys.exit()
 #machines = {"e6614103e763b337":"a36_cam_mica","e6614103e7739437":"a36_cam_medie"}
+from dim import Dim
+from brightness_map import brightness_map
+
+
+led_pin = 21
+motion_pin = 5
+ir_pin = 6
+ambient_light_pin = 26
+
+fade_time_ms=2000
+dim = Dim(led_pin,16,0,236,0,230,fade_time_ms)
+
+#light = machine.Pin(led_pin,machine.Pin.OUT)
+#light_pwm = PWM(light)
+
+#light_pwm.freq(5000)
+#light_pwm.duty_u16(0)
+
 time.sleep(2)
+
 from CONNECTWIFI import CONNECTWIFI
 wifi = CONNECTWIFI()
+
+debug = False #False
+
 
 from MACHINES import MACHINES
 machines = MACHINES()
@@ -26,6 +53,7 @@ topic_send = machines.topic_send
 
 
 lastMotion = 0
+
 #NRF
 from machine import SPI
 from machine import Pin
@@ -72,7 +100,6 @@ except:
 from HDC1080 import HDC1080
 
 from machine import WDT
-from machine import Pin,PWM
 print(machine.reset_cause())
 
 time.sleep(0.2)
@@ -80,11 +107,139 @@ time.sleep(0.2)
 #wdt = WDT(timeout=8000)
 #wdt.feed()
 
+from my_remotes import remote_samsung
+from my_remotes import remote_tiny
+from my_remotes import brightness_map
+
+from ir_remote_read import ir_remote_read
+print("IR sensor library init")
+ir_pin = Pin(ir_pin,Pin.IN) #,Pin.PULL_UP
+
+last_remote_button = ""
+last_remote_button_time = time.ticks_ms()
+
+def pressed_button(button):
+    global brightness
+    global auto_brightness
+    global desired
+    global remote_button
+    global last_remote_button
+    global last_remote_button_time
+    global dim
+    _button = button
+    threshold_repeat = 300
+    reject_repeat = ["*","#","ok"]
+    #print(_button == last_remote_button)
+    #print(_button in reject_repeat)
+    
+    
+    if _button == last_remote_button and _button in reject_repeat and (time.ticks_ms() - last_remote_button_time) < threshold_repeat:
+        #print("anti repeat")
+        last_remote_button_time = time.ticks_ms()
+        #print("break")
+        return
+    #print(_button,last_remote_button, (time.ticks_ms() - last_remote_button_time))
+    if _button == "up":
+        brightness += 5
+                
+    elif _button == "down" :
+        brightness -= 5
+    elif _button == "*":
+        print("toggle brightness, initial status: {}".format(auto_brightness))
+        last_remote_button_time = time.ticks_ms()
+        last_remote_button = _button
+        #if auto_brightness:
+            #enable_auto_brightness(False)
+            
+        #else:
+            #enable_auto_brightness(True)
+        return
+    else:
+        try:
+            directbutton = int(_button)
+            if directbutton == 0:
+                brightness = 0
+            elif directbutton == 1:
+                brightness = 35
+            elif directbutton == 2:
+                brightness = 50
+            elif directbutton == 3:
+                brightness = 65
+            elif directbutton == 4:
+                brightness = 80
+            elif directbutton == 5:
+                brightness = 95
+            elif directbutton == 6:
+                brightness = 100
+            elif directbutton == 7:
+                brightness = 108
+            elif directbutton == 8:
+                brightness = 112
+            elif directbutton == 9:
+                brightness = 115
+                   
+        except:
+            pass
+    #desired = read_adc()
+    last_remote_button = _button
+    last_remote_button_time = time.ticks_ms()
+    #enable_auto_brightness(False)
+    #light_pwm.duty_u16(brightness_map[brightness])
+    dim.setReqIndex1(brightness)
+    #change_duty(brightness,"remote")
+
+
+
+def ir_callback(remote,command,combo):
+    #print(combo)
+    global remote_button,debug
+    print("try combo: {}".format(combo))
+    
+    if combo == "R":
+        print("Repeat {}".format(remote_button))
+    else:
+        remote_button = ""
+    try:
+        remote_button = remote_samsung[combo]
+        
+    except:
+        pass
+        
+    try:
+        remote_button = remote_tiny[combo]
+        
+    except:
+        pass
+    print("Button: {}   Cod: {}".format(remote_button,combo))
+    
+    if debug:
+        print("Button: {}   Cod: {}".format(remote_button,combo))
+        
+    pressed_button(remote_button)
+
+    
+ir_remote_read(ir_pin,ir_callback, debug = debug)
+print("IR sensor listening")
+
 try:
     i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
 except:
     print("no i2c")
+
+
+try:
+    hdc1080 = HDC1080(i2c)
+    print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
+    print(f"Humidity: {int(hdc1080.read_humidity())}")
+    #print(f"Humidity: {int(hdc1080.read_humidity())}")
+
+
+except:
+    print("no humidity")
     
+#print("ok")
+#sys.exit()
+
 try:
     from BH1750 import BH1750
     bh1750 = BH1750(i2c)
@@ -92,16 +247,6 @@ try:
 except:
     print("no light sensor")
 
-
-try:
-    hdc1080 = HDC1080(i2c)
-    print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
-    print(f"Humidity: {int(hdc1080.read_humidity())}")
-
-
-except:
-    print("no humidity")
-    
 
 
 
@@ -121,6 +266,8 @@ ambient_light = read_light()
 print(f"Lux: {ambient_light}")
 
 
+
+
 def read_temperature():
     try:
         return round(hdc1080.read_temperature(celsius=True),1)
@@ -134,9 +281,10 @@ def read_humidity():
         return -1
 
 def read_dim():
-    global light_pwm
-    #print(f"read_dim: {light_pwm.duty_u16()*100/65534}")
-    return round(light_pwm.duty_u16()*100/65534)
+    global dim
+    print(f"read_dim: pwm {dim.pwm_1.duty_u16()}")
+    print(f"read_dim: index {dim.reqIndex1 * 100 / 200}")
+    return round(dim.reqIndex1 * 100 / 200)
 
 #ds_pwr = Pin(15,Pin.OUT)
 #ds_pwr.on()
@@ -150,9 +298,6 @@ time.sleep(0.1)
 #    time.sleep(1)
 
 
-
-light = machine.Pin(16,machine.Pin.OUT)
-light_pwm = PWM(light)
 
 
 
@@ -185,8 +330,6 @@ def publish(topic_send, value):
     client.publish(topic_send, value)
     #print("publish Done")
 
-
-client = mqttClient(True,machines.device)
 def sendTemperature(sender):
     global topic_send,machines
     print(f"sendTemperature function called by {sender}")
@@ -247,8 +390,9 @@ def sub_cb(topic, msg):
                 command,strValue = msg.decode().split(':')
 
                 value = int(strValue)
-                print(f"Command: {command}, Value: {strValue}, pwm: {round(value*65534/100)}")                
-                light_pwm.duty_u16(round(value*65534/100))
+                print(f"Command: {command}, Value: {strValue}, index: {round(value*200/100)}")                
+                dim.setReqIndex1(round(value*200/100))
+                #light_pwm.duty_u16(round(value*65534/100))
                 
                 #val = int(msg)
             try:
@@ -267,12 +411,18 @@ def sub_cb(topic, msg):
     else:
         print(f"Other {topic}: {str(topic)[str(topic).find('/')+1:str(topic).find('/')+2]}")
  
-client.set_callback(sub_cb)
-client.connect()
+print("Init MQTT")
+try:
+    client = mqttClient(True,machines.device)
+    client.set_callback(sub_cb)
+    client.connect()
 
-client.subscribe(topic = topic_receive)
-client.subscribe(topic = "to/#")
-print(f"Subscribed to: {topic_receive}")
+    client.subscribe(topic = topic_receive)
+    client.subscribe(topic = "to/#")
+    print(f"Subscribed to: {topic_receive}")
+
+except:
+    print("err mqtt")
 #client.subscribe(topic = "picow/lights")
 
 import struct
@@ -300,9 +450,7 @@ from machine import Timer
 from machine import PWM
 from machine import ADC
 
-from dim import Dim
-from brightness_map import brightness_map
-adc = ADC(26)
+adc = ADC(ambient_light_pin)
 
 
 
@@ -343,8 +491,6 @@ def analogReadings(self):
 #pwm = PWM(pwm_pin)
 #pwm.freq(30000)
 #pwm.duty_u16(0)
-fade_time_ms=1000
-dim = Dim(15,16,0,236,0,230,fade_time_ms)
 
 
 #led = Pin(25,Pin.OUT)
@@ -352,7 +498,7 @@ led = Pin('LED',Pin.OUT)
 #led12 = Pin(15,Pin.OUT)
 #led12.on()
 
-motion = Pin(22, Pin.IN,Pin.PULL_DOWN)
+motion = Pin(motion_pin, Pin.IN,Pin.PULL_DOWN)
 
 timer = Timer()
 timer_blink = Timer()
@@ -387,7 +533,7 @@ def motion_sensed(pin):
     global lastMotion
     pin.irq(trigger=0)
     lastMotion = time.time()
-    timer.init(period=1*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
+    timer.init(period=10*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
     print("motion")
     #time.sleep(5)
     pin.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
@@ -414,3 +560,4 @@ while True:
         except Exception as ex:
             print(f"Error sending to MQ: {ex}")
             client.connect()
+

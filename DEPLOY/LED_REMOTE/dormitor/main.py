@@ -8,6 +8,9 @@ import math
 #import picosleep
 import rp2
 
+IR_PIN = const(5)
+PWM_PIN = const(22)
+
 debug = True
 #******PID********
 #from pid import PID
@@ -58,8 +61,8 @@ from ir_remote_read import ir_remote_read
 
 
 
-ir_pin = Pin(5,Pin.IN) #,Pin.PULL_UP
-pwm_pin = Pin(22,Pin.OUT)
+ir_pin = Pin(IR_PIN,Pin.IN) #,Pin.PULL_UP
+pwm_pin = Pin(PWM_PIN,Pin.OUT)
 
 pwm_pin.low()
 

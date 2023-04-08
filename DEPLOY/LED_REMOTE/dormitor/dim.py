@@ -48,7 +48,7 @@ class Dim:
         #print(self.state, self.step1, self.step2)
         #print("Init to 0")
         
-
+    
     def setReqIndex1(self,reqIndex1):
         self.ch1Enabled = True
         
