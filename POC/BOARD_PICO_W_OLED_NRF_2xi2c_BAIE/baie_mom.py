@@ -64,7 +64,7 @@ try:
 
     # loop 10 times and print all temperatures
     ds.convert_temp()
-    time.sleep_ms(750)
+    time.sleep_ms(750) # type: ignore
     ds.read_temp(ds_id)
 except:
     print("no ds")
