@@ -1,4 +1,6 @@
-__author__ = 'beau'
+#__author__ = 'beau'
+from micropython import const
+
 import time
 class PID:
     """
@@ -25,11 +27,11 @@ class PID:
     
     """
     debug = False
-    def __init__(self,input_fun,output_fun, P=3., I=0.01, D=0.0,debug = False):
+    def __init__(self,input_fun,output_fun, _P=const(3.), _I=const(0.01), _D=const(0.0),debug = False):
         self.debug = debug
-        self.Kp=P
-        self.Ki=I
-        self.Kd=D
+        self._Kp=const(_P)
+        self._Ki=const(_I)
+        self._Kd=const(_D)
 
         self.I_value = 0
         self.P_value = 0
@@ -47,47 +49,49 @@ class PID:
         self.output_fun = output_fun
         self.input_fun = input_fun
 
-        self.last_update_time = time.ticks_ms()
+        #self.last_update_time = time.ticks_ms()
 
 
     def update(self):
-
-        if time.ticks_ms()-self.last_update_time > 50:
-            """
-            Calculate PID output value for given reference input and feedback
-            """
-            current_value = self.input_fun()
-            self.error = self.set_point - current_value
+        #print("update")
+        current_value = self.input_fun()
+        self.error = self.set_point - current_value
             #     print ('temp '+str(current_value))
             #    print ('SP'+str(self.set_point))
             
-            self.P_value = self.Kp * self.error
-            self.D_value = self.Kd * ( current_value-self.prev_value)
+        self.P_value = self._Kp * self.error
+        self.D_value = self._Kd * ( current_value-self.prev_value)
 
 
-            lapsed_time = time.ticks_ms()-self.last_update_time
-            lapsed_time/=1000. #convert to seconds
-            self.last_update_time = time.ticks_ms()
+            #lapsed_time = time.ticks_ms()-self.last_update_time
+            #lapsed_time/=1000. #convert to seconds
+            #self.last_update_time = time.ticks_ms()
 
 
 
 
 
-            self.I_value += self.error * self.Ki
+        self.I_value += self.error * self._Ki
 
-            if self.I_value > self.I_max:
-                self.I_value = self.I_max
-            elif self.I_value < self.I_min:
-                self.I_value = self.I_min
-
-            self.output = int((self.P_value + self.I_value - self.D_value)/100)
+        if self.I_value > self.I_max:
+                #self.I_value = self.I_max
+            return
+        elif self.I_value < self.I_min:
+            self.I_value = self.I_min
+            return
+        else:
+            self.output = int((self.P_value + self.I_value - self.D_value)/300)
+            
+        
+        if self.output != 0: 
+            self.output_fun(self.output)
 
             #if self.output<-100:
             #    self.output = -100.0
             #if self.output>100:
             #    self.output = 100.0
-            if self.debug:
-                print(f"PID Input: {current_value} ; PID SetPoint: {self.set_point}; PID Output: {self.output}")
+            #if self.debug:
+            #    print(f"PID Input: {current_value} ; PID SetPoint: {self.set_point}; PID Output: {self.output}")
 
                 #print("Setpoint: "+str(self.set_point))
                 #print("P: "+str(self.P_value))
@@ -96,6 +100,6 @@ class PID:
                 #print("Output: "+str(self.output))
                 #print ()
 
-            self.output_fun(self.output)
+            
 
-            self.last_update_time=time.ticks_ms()
+#            self.last_update_time=time.ticks_ms()

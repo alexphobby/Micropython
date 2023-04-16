@@ -2,6 +2,9 @@ import urequests
 
 import machine
 from machine import Pin,PWM
+from machine import Timer
+from machine import PWM
+from machine import ADC
 
 import time
 import utime
@@ -20,6 +23,11 @@ machine_id = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
 #machines = {"e6614103e763b337":"a36_cam_mica","e6614103e7739437":"a36_cam_medie"}
 from dim import Dim
 from brightness_map import brightness_map
+from pid import PID
+
+
+
+
 
 
 led_pin = 21
@@ -36,7 +44,7 @@ dim = Dim(led_pin,16,0,236,0,230,fade_time_ms)
 #light_pwm.freq(5000)
 #light_pwm.duty_u16(0)
 
-time.sleep(2)
+#time.sleep(2)
 
 from CONNECTWIFI import CONNECTWIFI
 wifi = CONNECTWIFI()
@@ -100,12 +108,15 @@ except:
 from HDC1080 import HDC1080
 
 from machine import WDT
-print(machine.reset_cause())
+
+wdt_is_enabled = False
+if machine.reset_cause() != 3: 
+    wdt = WDT(timeout=8000)
+    wdt_is_enabled = True
+    wdt.feed()
 
 time.sleep(0.2)
 
-#wdt = WDT(timeout=8000)
-#wdt.feed()
 
 from my_remotes import remote_samsung
 from my_remotes import remote_tiny
@@ -185,7 +196,10 @@ def pressed_button(button):
     last_remote_button_time = time.ticks_ms()
     #enable_auto_brightness(False)
     #light_pwm.duty_u16(brightness_map[brightness])
+    setAutoBrightness("false")
+    time.sleep(0.1)
     dim.setReqIndex1(brightness)
+    
     #change_duty(brightness,"remote")
 
 
@@ -252,12 +266,14 @@ except:
 
 def read_light():
     try:
-        read_1 = round(bh1750.luminance(bh1750.CONT_HIRES_2),1)
-        time.sleep_ms(50)
-        read_2 = round(bh1750.luminance(bh1750.CONT_HIRES_2),1)
-        time.sleep_ms(50)
-        read_3 = round(bh1750.luminance(bh1750.CONT_HIRES_2),1)
-        return int((read_1+read_2+read_3)*10/3)
+        read_1 = round(bh1750.luminance_fast(bh1750.CONT_HIRES_2),1)
+        #print(read_1)
+        #time.sleep_ms(10)
+        #read_2 = round(bh1750.luminance(bh1750.CONT_HIRES_2),1)
+        #time.sleep_ms(50)
+        #read_3 = round(bh1750.luminance(bh1750.CONT_HIRES_2),1)
+        return read_1
+        #return int((read_1+read_2+read_3)*10/3)
     
     except:
         return -1
@@ -265,6 +281,36 @@ def read_light():
 ambient_light = read_light()
 print(f"Lux: {ambient_light}")
 
+def pid_output(message):
+    global timer_pid,pid,dim
+    if abs(message) == 0:
+        return
+    print(message)
+    _requestedIndex = dim.index1 + message
+    if _requestedIndex < dim.max1 and _requestedIndex > dim.min1 :
+        dim.setReqIndex1(dim.index1 + message)
+        print(f"Dimming message:{message}, setReqIndex1 = {dim.index1}")
+    else:
+        print("Out of range, new setpoint")
+        pid.set_point = read_light()
+    
+    
+    return
+        
+def update_pid(timer):
+    global pid
+    timer.deinit()
+    #print("start")
+    pid.update()
+    timer.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
+    #print("end")
+
+
+from micropython import const  
+pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
+
+timer_pid = Timer()
+#timer_pid.init(period=50, mode=Timer.PERIODIC, callback = update_pid)
 
 
 
@@ -282,8 +328,8 @@ def read_humidity():
 
 def read_dim():
     global dim
-    print(f"read_dim: pwm {dim.pwm_1.duty_u16()}")
-    print(f"read_dim: index {dim.reqIndex1 * 100 / 200}")
+    #print(f"read_dim: pwm {dim.pwm_1.duty_u16()}")
+    #print(f"read_dim: index {dim.reqIndex1 * 100 / 200}")
     return round(dim.reqIndex1 * 100 / 200)
 
 #ds_pwr = Pin(15,Pin.OUT)
@@ -298,11 +344,32 @@ time.sleep(0.1)
 #    time.sleep(1)
 
 
-
-
-
-
 #res = urequests.get("https://google.com")
+result = False
+while result == False:
+    try:
+        res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest")
+        result = True
+    except:
+        print("err")
+        
+print("-----------")
+#print(res.json()["unixtime"])
+
+import ujson
+unixtime = int(res.json()["unixtime"])
+UTC_OFFSET = int(res.json()["utc_offset"][2:3])
+
+adjustedunixtime = int(unixtime + UTC_OFFSET*60*60)
+#print(f"Got time: {res.json()["unixtime"]}")
+tm = time.localtime(adjustedunixtime)
+machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
+print(unixtime)
+print(adjustedunixtime)
+print(time.localtime())
+print(f"Time is: {time.localtime()[3]}:{time.localtime()[4]}")
+print("-----------")
+
 last_run_time_send = 0
 last_run_time_receive = 0
 
@@ -332,6 +399,7 @@ def publish(topic_send, value):
 
 def sendTemperature(sender):
     global topic_send,machines
+    
     print(f"sendTemperature function called by {sender}")
     #publish(topic_send, f"name:{machines.name}")
     publish(topic_send, f"temperature:{read_temperature()}")
@@ -339,15 +407,37 @@ def sendTemperature(sender):
     publish(topic_send, f"ambient:{read_light()}")
     publish(topic_send, f"dim:{read_dim()}")
 
+autoBrightness = False
+
+
+
+def setAutoBrightness(strValue):
+    global autoBrightness, topic_send, pid, timer_pid
+    
+    
+    
+    print(f"setAutoBrightness = {strValue}")
+    if strValue == "true":
+        autoBrightness = True
+        _setpoint = read_light()
+        pid.set_point = _setpoint
+        print(f"Dim setpoint = {_setpoint}")
+        timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
+        #pid.update()
+    else:
+        autoBrightness = False
+        timer_pid.deinit()
+    
+    discovery("setAutobrightness")
 
 def discovery(sender):
-    global topic_send,machines,lastMotion
+    global topic_send,machines,lastMotion,autoBrightness
     print(f"Discovery function called by {sender}")
     temperature = read_temperature()
     humidity = read_humidity()
     ambient = read_light()
     dim = read_dim()
-    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion}
+    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
     
     #output = json.loads()
     #publish(topic_send, f"device:{machines.device}")
@@ -359,7 +449,7 @@ def discovery(sender):
     print(f"jsonDiscovery:{output}")
 
 def sub_cb(topic, msg):
-    global light,last_run_time_send,light_pwm #,topic
+    global light,last_run_time_send,light_pwm,timer_pid #,topic
     
     
     print(f"Topic: {topic}; Mesaj: {msg}")
@@ -388,10 +478,19 @@ def sub_cb(topic, msg):
             #try:
             if True:
                 command,strValue = msg.decode().split(':')
-
-                value = int(strValue)
-                print(f"Command: {command}, Value: {strValue}, index: {round(value*200/100)}")                
-                dim.setReqIndex1(round(value*200/100))
+                print(f"Command: {command}, Value: {strValue}")
+                if command == "lights":
+                    intValue = int(strValue)
+                    timer_pid.deinit()
+                    setAutoBrightness("false")
+                    dim.setReqIndex1(round(intValue*200/100))
+                    #print(f"Command: {command}, Value: {strValue}, index: {round(value*200/100)}")                
+                if command == "setAutoBrightness":
+                    print("setAutoBrightness")
+                    locals()[command](strValue)
+                    
+                
+                
                 #light_pwm.duty_u16(round(value*65534/100))
                 
                 #val = int(msg)
@@ -430,9 +529,11 @@ import random
 
 
 #Update time from NTP
+if wdt_is_enabled:
+    wdt.feed()
 
-import NTP
-from NTP import ro_time_epoch
+#import NTP
+#from NTP import ro_time_epoch
 
 try:
             
@@ -446,9 +547,6 @@ except Exception as ex:
 
 
 
-from machine import Timer
-from machine import PWM
-from machine import ADC
 
 adc = ADC(ambient_light_pin)
 
@@ -544,6 +642,8 @@ motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 while True:
     if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_receive) >= 1000:
         last_run_time_receive = tmp
+        if wdt_is_enabled:
+            wdt.feed()
         #received = client.check_msg()
 
     if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 300000:
