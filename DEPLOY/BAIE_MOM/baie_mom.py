@@ -5,7 +5,6 @@ from machine import PWM
 from machine import ADC
 import machine # import deepsleep,reset_cause,DEEPSLEEP_RESET
 from HDC1080 import HDC1080
-from config import config
 from dim import Dim
 from brightness_map import brightness_map
 import micropython #import alloc_emergency_exception_buf
@@ -22,7 +21,7 @@ micropython.alloc_emergency_exception_buf(100)
 
 
 print(machine.reset_cause())
-time.sleep(4)
+time.sleep(1)
 
 
 #if machine.reset_cause() == machine.DEEPSLEEP_RESET:
@@ -48,8 +47,8 @@ motionPIR = Pin(22, Pin.IN,Pin.PULL_DOWN)
 motionRADAR = Pin(21, Pin.IN,Pin.PULL_DOWN)
 fan = Pin(20,Pin.OUT)
 
-dimSetPoint = int(config["light_value"])
-humiditySetPoint = int(config["humidity_setpoint"])
+#dimSetPoint = int(config["light_value"])
+#humiditySetPoint = int(config["humidity_setpoint"])
 
 fade_time_ms=4000
 dim = Dim(19,16,0,236,0,230,fade_time_ms)
@@ -58,13 +57,42 @@ dim = Dim(19,16,0,236,0,230,fade_time_ms)
 fan.off()
 
 
+def readConfig():
+    global settings_dict,dimSetPoint,humiditySetPoint
+    import json
+    #saved settings:
+    file = open("config.py", "r")
+    settings = file.read()
 
+    settings_dict = json.loads(settings.replace("\'","\""))
+    humiditySetPoint = int(settings_dict["humiditySetPoint"])
+    dimSetPoint = int(settings_dict["dimSetPoint"])
+    print(f"Loaded from settings: Humidity setpoint: {humiditySetPoint}; Light setpoint: {dimSetPoint}")
+
+readConfig()
+
+def updateConfig():
+    global settings_dict
+
+
+    file = open("config.py", "w")
+    file.__del__()
+    file.close()
+
+    #settings_dict = json.loads(settings)
+    settings_dict["humiditySetPoint"] = str(humiditySetPoint)
+    settings_dict["dimSetPoint"] = str(dimSetPoint)
+    print(f"Save settings: Humidity setpoint: {humiditySetPoint}; Light setpoint: {dimSetPoint}")
+    file = open("config.py", "w")
+    settings = file.write(settings_dict)
+    file.close()
+    
 
 #machine.deepsleep(10000)
 
 
 #dimSetPoint = int(adc.read_u16()* 233 / 65000)
-
+i2c=""
 try:
     i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
 except:
@@ -114,7 +142,7 @@ timer_blink = Timer()
 timer_motionPIR = Timer()
 timer_humidity = Timer()
 timer_fan = Timer()
-
+timer_check_mqtt = Timer()
 
 def stopFan(timer):
     global fan
@@ -138,11 +166,12 @@ sensed=False
 
 def dimToOff(timer):
     global dim
-    if motionRADAR.value == 0:
+    if motionRADAR.value() == 0 and motionPIR.value() == 0:
         print("Dim To off")
         dim.dimToOff()
     else:
-       timer.init(period=1*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
+       print("Do not dim To off, extend time")
+       timer.init(period=1*5*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
 
 
 def onSensed(irqpin):
@@ -154,7 +183,7 @@ def onSensed(irqpin):
     dim.setReqIndex1(dimSetPoint)
     #time.sleep(2)
     
-    timer.init(period=1*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
+    timer.init(period=1*5*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
     motionPIR.irq(trigger=Pin.IRQ_RISING, handler=onSensed)
     motionRADAR.irq(trigger=Pin.IRQ_RISING, handler=onSensed)
     
@@ -198,6 +227,9 @@ def read_humidity():
     except:
         return -1
 
+
+
+
 machine_id = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
 
 from CONNECTWIFI import CONNECTWIFI
@@ -236,14 +268,14 @@ def publish(topic_send, value):
 
 
 def discovery(sender):
-    global topic_send,machines,lastMotion,autoBrightness
+    global topic_send,machines,lastMotion
     print(f"Discovery function called by {sender}")
     #temperature = read_temperature()
     humidity = read_humidity()
     #ambient = read_light()
     #dim = read_dim()
     #output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
-    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(0),"humidity":str(humidity),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(0),"humidity":str(humidity),"ambient":str(0),"dim":str(dimSetPoint),"lastmotion":0,"autobrightness":0}
     #output = json.loads()
     #publish(topic_send, f"device:{machines.device}")
     #publish(topic_send, f"name:{machines.name}")
@@ -254,7 +286,7 @@ def discovery(sender):
     print(f"jsonDiscovery:{output}")
 
 def sub_cb(topic, msg):
-    global light,last_run_time_send,light_pwm,timer_pid #,topic
+    global light,last_run_time_send,dimSetPoint #,topic
     
     
     print(f"Topic: {topic}; Mesaj: {msg}")
@@ -265,10 +297,10 @@ def sub_cb(topic, msg):
         print("Matched topic")
         #print("Lights")
         if msg == b'true':
-            light.on()
+            dim.dimToOn()
             print("Lights ON")
         elif msg == b'false':
-            light.off()
+            dim.dimToOff()
             print("Lights OFF")
             #publish('picow/frompico', f"Received:{msg}")
         elif msg == b'discovery':
@@ -285,12 +317,11 @@ def sub_cb(topic, msg):
                 command,strValue = msg.decode().split(':')
                 print(f"Command: {command}, Value: {strValue}")
                 if command == "lights":
-                    intValue = int(strValue)
-                    timer_pid.deinit()
-                    setAutoBrightness("false")
-                    dim.setReqIndex1(round(intValue*200/100))
-                    
-                    #print(f"Command: {command}, Value: {strValue}, index: {round(value*200/100)}")                
+                    intValue = int((int(strValue)*220)/100)
+                    #dim.setReqIndex1(round(intValue*200/100))
+                    dimSetPoint = intValue
+                    print(f"Command: {command}, Value: {strValue}, index: {intValue}")                
+                    updateConfig()
                 if command == "setAutoBrightness":
                     print("setAutoBrightness")
                     locals()[command](strValue)
@@ -320,30 +351,36 @@ def sub_cb(topic, msg):
  
 
 print("Init MQTT")
-try:
-    client = mqttClient(True,machines.device)
-    client.set_callback(sub_cb)
-    client.connect()
+mqttInit = False
+retryCount = 0
+while mqttInit == False and retryCount < 5:
+    try:
+        client = mqttClient(True,machines.device)
+        client.set_callback(sub_cb)
+        client.connect()
 
-    client.subscribe(topic = topic_receive)
-    client.subscribe(topic = "to/#")
-    print(f"Subscribed to: {topic_receive}")
-    discovery("Init")
+        client.subscribe(topic = topic_receive)
+        client.subscribe(topic = "to/#")
+        print(f"Subscribed to: {topic_receive}")
+        discovery("Init")
+        timer_check_mqtt.init(period=5000, mode=Timer.PERIODIC, callback=lambda t:client.check_msg())   # Timer.ONE_SHOT . Period in m
+        mqttInit= True
 
-except:
-    print("err mqtt")
+    except:
+        retryCount  += 1
+        print("err mqtt")
     
-discovery("Init")
+
 #client.subscribe(topic = "picow/lights")
 
 last_run_time_send = 0
 last_run_time_receive = 0
 
 while True:
-        if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 30000:
+        if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 10000:
             last_run_time_send = tmp
             try:
-                
+                print("MQTT ping")
                 client.ping()
                 #publish('fromCMica', f"dt:{str(round(ds.read_temp(ds_id),1 ) )}")
                 #publish('fromCMica', f"t:{read_temperature()}")
