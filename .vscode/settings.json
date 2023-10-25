@@ -1,6 +1,15 @@
 {
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.extraPaths": [
-        "./DS18b20 OneWire"
+        "./DS18b20 OneWire",
+        ".vscode\\Pico-W-Stub"
+    ],
+    "python.linting.enabled": true,
+    "python.languageServer": "Pylance",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingModuleSource": "none"
+    },
+    "python.analysis.typeshedPaths": [
+        ".vscode\\Pico-W-Stub"
     ]
 }
