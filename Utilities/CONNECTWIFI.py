@@ -2,58 +2,51 @@ import network
 import urequests
 import time
 import secrets
+from machine import Pin
 
 
 class CONNECTWIFI:
 #    hotspots = []
     hotspot = ""
-    result = ""
     wlan=None
+    wlanPower = Pin(23,Pin.OUT)
+    
     #wlan = ""
     i=0
     def __init__(self):
         """Initialize wifi connection and try all hotspots with a password
             It needs the secrets.py file with PASSWORD = 'pass'
         """
+        
         self.check_and_connect()
         
         
     def check_and_connect(self):
         while self.wlan is None:
             print("Init wlan")
+            
             self.wlan = network.WLAN(network.STA_IF)
-            time.sleep(2)
+            #time.sleep(1)
             self.wlan.active(True)
-            time.sleep(2)
+            #time.sleep(2)
+            
+            if self.wlan is None:
+                print("Cycle power to radio")
+                self.wlanPower.off()
+                time.sleep(1)
+                self.wlanPower.on()
+                time.sleep(1)    
         
         if self.wlan.isconnected() == False:
             print("Need to connect")
-            try:
-                self.result = self.connect_to_default()
-                #print(f"Cannot connect to default, result = {self.result}")
-           #     return
-            except:
-                print(f"Cannot connect to default")
-                
             self.connect()
         else:
             print("Is Connected")
-            
-    def connect_to_default(self):
-        if not self.wlan.isconnected():
-            print(f"Try to connect to: {secrets.SSID},Pass: {secrets.PASSWORDS[0]}")
-            self.wlan.connect(secrets.SSID, secrets.PASSWORDS[0])
-            time.sleep(10)
-            print(f"Status: {self.wlan.status()}")
-            
-            
+    def is_connected(self):
         if self.wlan.status() == 3:
-            print(f"Connected")
             return True
         else:
-            print(f"raise err Status: {self.wlan.status()}")
-            raise Exception("ERR Cannot connect to default")
-            
+            return False
         
     def connect(self):
 
@@ -119,6 +112,7 @@ class CONNECTWIFI:
             except Exception as ex:
 #                pass
                 print(f"Err - Cannot connect to {hotspot[0]}, current status = {self.wlan.status()}, {ex}")
+                time.sleep(10)
 
         
 

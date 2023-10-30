@@ -3,8 +3,12 @@ import time
 from machine import Timer
 from machine import PWM
 from machine import ADC
+import secrets
+
 import machine # import deepsleep,reset_cause,DEEPSLEEP_RESET
-from HDC1080 import HDC1080
+
+from hdc1080_util import hdc1080_util
+
 from dim import Dim
 from brightness_map import brightness_map
 import micropython #import alloc_emergency_exception_buf
@@ -13,6 +17,7 @@ import ubinascii
 
 import random
 
+LED_TIMEOUT=1*10 #1 minut
 micropython.alloc_emergency_exception_buf(100)
 #Pinout:
 #PIN26: ADC potentiometer for dimming
@@ -23,6 +28,7 @@ micropython.alloc_emergency_exception_buf(100)
 print(machine.reset_cause())
 time.sleep(1)
 
+hdc1080 = hdc1080_util()
 
 #if machine.reset_cause() == machine.DEEPSLEEP_RESET:
 #    print('woke from a deep sleep')
@@ -60,7 +66,7 @@ fan.off()
 def readConfig():
     global settings_dict,dimSetPoint,humiditySetPoint
     import json
-    #saved settings:
+    #saved settings: {"humiditySetPoint":"50","dimSetPoint":"10"}
     file = open("config.py", "r")
     settings = file.read()
 
@@ -84,7 +90,7 @@ def updateConfig():
     settings_dict["dimSetPoint"] = str(dimSetPoint)
     print(f"Save settings: Humidity setpoint: {humiditySetPoint}; Light setpoint: {dimSetPoint}")
     file = open("config.py", "w")
-    settings = file.write(settings_dict)
+    settings = file.write(str(settings_dict))
     file.close()
     
 
@@ -92,20 +98,6 @@ def updateConfig():
 
 
 #dimSetPoint = int(adc.read_u16()* 233 / 65000)
-i2c=""
-try:
-    i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
-except:
-    print("no i2c")
-    
-try:
-    hdc1080 = HDC1080(i2c)
-    print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
-    print(f"Humidity: {int(hdc1080.read_humidity())}")
-
-
-except:
-    print("no humidity")
 
 #analogReadings = []
 analogReading = 0
@@ -120,15 +112,6 @@ def analogReadings(self):
         analogReadings.append(int(adc.read_u16()* 233 / 65000))
         analogReadings.pop(0)
         
-        #print(f"Instant: {lightReadings[-1]};average: {old_average}")
-    #average = 0
-    
-    for value in analogReadings:
-        average = average + value/20
-        
-    if int(abs(average - analogReading)) > 3:
-            #print(f"Update: {int(average)}")
-        analogReading = int(average)
 #pwm_pin = Pin(15,Pin.OUT)
 #pwm_pin.low()
 
@@ -137,7 +120,7 @@ def analogReadings(self):
 #pwm.duty_u16(0)
 
 
-timer = Timer()
+timer_led_off = Timer()
 timer_blink = Timer()
 timer_motionPIR = Timer()
 timer_humidity = Timer()
@@ -171,7 +154,7 @@ def dimToOff(timer):
         dim.dimToOff()
     else:
        print("Do not dim To off, extend time")
-       timer.init(period=1*5*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
+       timer_led_off.init(period=LED_TIMEOUT*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
 
 
 def onSensed(irqpin):
@@ -183,30 +166,28 @@ def onSensed(irqpin):
     dim.setReqIndex1(dimSetPoint)
     #time.sleep(2)
     
-    timer.init(period=1*5*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
+    timer_led_off.init(period=LED_TIMEOUT*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
     motionPIR.irq(trigger=Pin.IRQ_RISING, handler=onSensed)
     motionRADAR.irq(trigger=Pin.IRQ_RISING, handler=onSensed)
     
     #timer_motionPIR.init(period=2000, mode=Timer.ONE_SHOT, callback = disableSensed)  #print("sensed timer"))
+
 def readHumidity(firedTimer):
     global hdc1080
-    print("readHumidity")
     
-    #firedTimer.deinit()
     try:
-        if (int(hdc1080.read_humidity()) > humiditySetPoint):
+        if (hdc1080.humidity() > humiditySetPoint):
             print("humid")
             runFan()
     except:
         print("Err read humidity")
         
-    #print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
-    print(f"Humidity: {int(hdc1080.read_humidity())}")
+    print(f"Humidity: {hdc1080.humidity()}")
             
 
 print("Enable Timers ant Interrupts")
 
-timer_blink.init(period=200, mode=Timer.PERIODIC, callback = blinkOnboardLed)
+
     
 motionPIR.irq(trigger=Pin.IRQ_RISING, handler=onSensed) #Pin.IRQ_RISING|Pin.IRQ_FALLING
 
@@ -221,14 +202,6 @@ timer_humidity.init(period=30000, mode=Timer.PERIODIC, callback=readHumidity)   
 
 #timer.init(freq=1, mode=Timer.PERIODIC, callback=blink)
 #timer.init(period=1000, mode=Timer.ONE_SHOT, callback=analogReadings)   # Timer.ONE_SHOT . Period in m
-def read_humidity():
-    try:
-        return round(hdc1080.read_humidity())
-    except:
-        return -1
-
-
-
 
 machine_id = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
 
@@ -243,39 +216,16 @@ topic_receive = machines.topic_receive
 topic_send = machines.topic_send
 
 
-from mqtt import MQTTClient
-
-def mqttClient(ssl_enabled = False,name="pico"):
-    client = MQTTClient(client_id=b"" + name,
-    server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
-    port=8883,
-    user=b"apanoiu",
-    password=b"Mqtt741852",
-    keepalive=3600,
-    ssl=ssl_enabled,
-    ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
-    )
-
-    #client.connect()
-    return client
-
-def publish(topic_send, value):
-    global client
-    #print(topic)
-    #print(f"Sending to {topic_send} Message: {value}")
-    client.publish(topic_send, value)
-    #print("publish Done")
-
 
 def discovery(sender):
     global topic_send,machines,lastMotion
     print(f"Discovery function called by {sender}")
     #temperature = read_temperature()
-    humidity = read_humidity()
+    humidity = hdc1080.humidity()
     #ambient = read_light()
     #dim = read_dim()
     #output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
-    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(0),"humidity":str(humidity),"ambient":str(0),"dim":str(dimSetPoint),"lastmotion":0,"autobrightness":0}
+    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(hdc1080.temperature()),"humidity":str(humidity),"ambient":str(0),"dim":str(dimSetPoint),"lastmotion":0,"autobrightness":0}
     #output = json.loads()
     #publish(topic_send, f"device:{machines.device}")
     #publish(topic_send, f"name:{machines.name}")
@@ -327,18 +277,8 @@ def sub_cb(topic, msg):
                     locals()[command](strValue)
                     discovery("setAutobrightness")
                     
-                
-                
-                #light_pwm.duty_u16(round(value*65534/100))
-                
-                #val = int(msg)
-            try:
-                pass
-            except:# ex as Exception:
-                #pass
-                #print("Error parsing, {ex}")
-                print("Err")
-
+      
+      
     elif str(topic)[str(topic).find('/')+1:str(topic).find('/')+2] == '*' and str(topic)[2:str(topic).find('/')] == str(topic_receive)[0:str(topic_receive).find('/')]:
         print("broadcast")
         try:
@@ -348,7 +288,27 @@ def sub_cb(topic, msg):
     else:
         print(f"Other {topic}: {str(topic)[str(topic).find('/')+1:str(topic).find('/')+2]}")
  
- 
+from mqtt import MQTTClient
+
+def mqttClient(ssl_enabled = False,name="pico"):
+    client = MQTTClient(client_id=b"" + name,
+    server=secrets.MQTT_SERVER,
+    port=8883,
+    user=secrets.MQTT_USERNAME,
+    password=secrets.MQTT_PASSWORD,
+    keepalive=3600,
+    ssl=ssl_enabled,
+    ssl_params={'server_hostname':secrets.MQTT_SERVER}
+    )
+    return client
+
+def publish(topic_send, value):
+    global client
+    #print(topic)
+    #print(f"Sending to {topic_send} Message: {value}")
+    client.publish(topic_send, value)
+    #print("publish Done")
+
 
 print("Init MQTT")
 mqttInit = False
@@ -377,16 +337,17 @@ last_run_time_send = 0
 last_run_time_receive = 0
 
 while True:
-        if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 10000:
+        if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 100000:
             last_run_time_send = tmp
             try:
+                blink_period = 5000
+                if wifi.is_connected():
+                    blink_period = 1000
+                timer_blink.init(period=blink_period, mode=Timer.PERIODIC, callback = blinkOnboardLed)
+
                 print("MQTT ping")
                 client.ping()
-                #publish('fromCMica', f"dt:{str(round(ds.read_temp(ds_id),1 ) )}")
-                #publish('fromCMica', f"t:{read_temperature()}")
-                #publish('fromCMica', f"h:{read_humidity()}")
-                #publish('fromCMica', f"l:{read_light()}")
-                #sendTemperature("300s loop")
+                
                 
             except Exception as ex:
                 print(f"Error sending to MQ: {ex}")
@@ -397,9 +358,4 @@ while False: #never run
         dim.setReqIndex1(dimSetPoint)
         timer.init(period=1*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)   # Timer.ONE_SHOT . Period in m
         
-        
-    #led.toggle()
-#    led12.toggle()
-    time.sleep(0.2)
-    #print(motionPIR.value())
-    #time.sleep(0.1)
+      
