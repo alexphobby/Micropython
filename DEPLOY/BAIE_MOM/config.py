@@ -1,0 +1,1 @@
+{'humiditySetPoint': '80', 'dimSetPoint': '66'}

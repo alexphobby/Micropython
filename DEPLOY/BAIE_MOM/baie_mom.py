@@ -1,3 +1,20 @@
+#Timer baie
+#INT PIR 22
+#INT RADAR 21
+#ACS switch 20
+#LED PWM 19
+#I2c 0 & 1
+#pwr 3.3v
+#pwr disable buckboost(enable to GND)
+
+#Pinout baie:
+#brown -
+#red +
+#blue radar
+#white pir
+#green sda
+#black scl
+
 from machine import Pin
 import time
 from machine import Timer
@@ -17,7 +34,7 @@ import ubinascii
 
 import random
 
-LED_TIMEOUT=1*10 #1 minut
+LED_TIMEOUT=1*5 #1 minut
 micropython.alloc_emergency_exception_buf(100)
 #Pinout:
 #PIN26: ADC potentiometer for dimming
@@ -48,8 +65,8 @@ led = Pin("LED",Pin.OUT)
 #radio.off()
 time.sleep(2)
 
-adc = ADC(26)
-motionPIR = Pin(22, Pin.IN,Pin.PULL_DOWN)
+#adc = ADC(26)
+motionPIR = Pin(22, Pin.IN) #,Pin.PULL_DOWN)
 motionRADAR = Pin(21, Pin.IN,Pin.PULL_DOWN)
 fan = Pin(20,Pin.OUT)
 
@@ -59,9 +76,7 @@ fan = Pin(20,Pin.OUT)
 fade_time_ms=4000
 dim = Dim(19,16,0,236,0,230,fade_time_ms)
 
-
 fan.off()
-
 
 def readConfig():
     global settings_dict,dimSetPoint,humiditySetPoint
@@ -100,17 +115,17 @@ def updateConfig():
 #dimSetPoint = int(adc.read_u16()* 233 / 65000)
 
 #analogReadings = []
-analogReading = 0
-def analogReadings(self):
-    global analogReading,motionPIR
-    average = 0
-    analogReadings = []
-    if motionPIR.value() == 1:
-        return
+#analogReading = 0
+#def analogReadings(self):
+#    global analogReading,motionPIR
+#    average = 0
+#    analogReadings = []
+#    if motionPIR.value() == 1:
+#        return
 
-    for i in range(20):
-        analogReadings.append(int(adc.read_u16()* 233 / 65000))
-        analogReadings.pop(0)
+#    for i in range(20):
+#        analogReadings.append(int(adc.read_u16()* 233 / 65000))
+#        analogReadings.pop(0)
         
 #pwm_pin = Pin(15,Pin.OUT)
 #pwm_pin.low()
@@ -142,8 +157,8 @@ def blinkOnboardLed(timer):
     global led,adc,dimSetPoint
     led.toggle()
     #print(motionPIR.value())
-    if abs(dimSetPoint - int(adc.read_u16()* 233 / 65000)) > 3:
-        pass
+    #if abs(dimSetPoint - int(adc.read_u16()* 233 / 65000)) > 3:
+    #    pass
 
 sensed=False
 
@@ -171,18 +186,27 @@ def onSensed(irqpin):
     motionRADAR.irq(trigger=Pin.IRQ_RISING, handler=onSensed)
     
     #timer_motionPIR.init(period=2000, mode=Timer.ONE_SHOT, callback = disableSensed)  #print("sensed timer"))
-
+humidityNow = 0
+humidityThreshold = 5
 def readHumidity(firedTimer):
     global hdc1080
-    
+    humidityNow = hdc1080.humidity()
+    #if True:
     try:
-        if (hdc1080.humidity() > humiditySetPoint):
-            print("humid")
+        if (humidityNow > humiditySetPoint + humidityThreshold ):
+            print(f"Humidity too high: {humidityNow}")
             runFan()
+            #print(f"Humidity: {hdc1080.humidity()}")
+        elif (humidityNow < humiditySetPoint - humidityThreshold):
+            print(f"Humidity in range: {humiditySetPoint - humidityThreshold} < {humidityNow} < {humiditySetPoint + humidityThreshold}")
+            #stopFan()
+        else:
+            print(f"Humidity ok: {humidityNow}")
+            #stopFan()
     except:
         print("Err read humidity")
         
-    print(f"Humidity: {hdc1080.humidity()}")
+    
             
 
 print("Enable Timers ant Interrupts")
@@ -193,7 +217,7 @@ motionPIR.irq(trigger=Pin.IRQ_RISING, handler=onSensed) #Pin.IRQ_RISING|Pin.IRQ_
 
 motionRADAR.irq(trigger=Pin.IRQ_RISING, handler=onSensed) #Pin.IRQ_RISING|Pin.IRQ_FALLING
 
-timer_humidity.init(period=30000, mode=Timer.PERIODIC, callback=readHumidity)   # Timer.ONE_SHOT . Period in m
+timer_humidity.init(period=10000, mode=Timer.PERIODIC, callback=readHumidity)   # Timer.ONE_SHOT . Period in m
 
 
 
@@ -221,11 +245,16 @@ def discovery(sender):
     global topic_send,machines,lastMotion
     print(f"Discovery function called by {sender}")
     #temperature = read_temperature()
-    humidity = hdc1080.humidity()
+    try:
+        humidity = hdc1080.humidity()
+        temperature = hdc1080.temperature()
+    except:
+        humidity = 0
+        temperature = 0
     #ambient = read_light()
     #dim = read_dim()
     #output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
-    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(hdc1080.temperature()),"humidity":str(humidity),"ambient":str(0),"dim":str(dimSetPoint),"lastmotion":0,"autobrightness":0}
+    output = {"devicename":str(machines.device),"roomname":str(machines.name),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(0),"dim":str(dimSetPoint),"lastmotion":0,"autobrightness":0}
     #output = json.loads()
     #publish(topic_send, f"device:{machines.device}")
     #publish(topic_send, f"name:{machines.name}")
@@ -236,7 +265,7 @@ def discovery(sender):
     print(f"jsonDiscovery:{output}")
 
 def sub_cb(topic, msg):
-    global light,last_run_time_send,dimSetPoint #,topic
+    global light,last_run_time_send,dimSetPoint,humiditySetPoint #,topic
     
     
     print(f"Topic: {topic}; Mesaj: {msg}")
@@ -271,6 +300,10 @@ def sub_cb(topic, msg):
                     #dim.setReqIndex1(round(intValue*200/100))
                     dimSetPoint = intValue
                     print(f"Command: {command}, Value: {strValue}, index: {intValue}")                
+                    updateConfig()
+                if command == "humidity":
+                    intValue = int(strValue)
+                    humiditySetPoint = intValue
                     updateConfig()
                 if command == "setAutoBrightness":
                     print("setAutoBrightness")
@@ -314,6 +347,7 @@ print("Init MQTT")
 mqttInit = False
 retryCount = 0
 while mqttInit == False and retryCount < 5:
+    #if True:
     try:
         client = mqttClient(True,machines.device)
         client.set_callback(sub_cb)

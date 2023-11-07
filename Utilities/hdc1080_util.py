@@ -30,9 +30,17 @@ class hdc1080_util:
             print("no humidity")
 
     def temperature(self):
-        temperature = round(self.hdc1080.read_temperature(celsius=True),1)
+        try:
+            temperature = round(self.hdc1080.read_temperature(celsius=True),1)
+        except:
+            temperature = 0
+            
         return temperature
     
     def humidity(self):
-        humidity = int(self.hdc1080.read_humidity())
+        try
+            humidity = int(self.hdc1080.read_humidity())
+        except:
+            humidity=0
+            
         return humidity
