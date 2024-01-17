@@ -4,7 +4,7 @@ from MACHINES import MACHINES
 
 import asyncio
 from ubinascii import hexlify
-from mqtt_as import MQTTClient
+from mqtt_as_slim import MQTTClient
 from NTP import *
 from WEATHER import *
 from machine import Pin
