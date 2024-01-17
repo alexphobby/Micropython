@@ -75,7 +75,6 @@ class Senko:
             if self.all_folder:
                 print(f"Headers: {self.headers}, URL={self.github_api}")
                 res = requests.get(self.github_api,headers = self.headers).json()
-                print(res)
                 for obj in res:
                     print(f"Found file {obj['name']} in repo")
                     self.files.append(obj['name'])
