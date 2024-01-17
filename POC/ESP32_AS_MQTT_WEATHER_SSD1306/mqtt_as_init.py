@@ -8,7 +8,7 @@ from NTP import *
 from WEATHER import *
 from machine import Pin
 
-machines = MACHINES()
+my_machine = MACHINES()
 
 config = {
     "client_id": "",
@@ -72,7 +72,7 @@ async def up(client):  # Respond to connectivity being (re)established
         await client.up.wait()  # Wait on an Event
         client.up.clear()
         await client.subscribe("to/#", 1)
-        await client.subscribe(machines.topic_receive, 1)  # renew subscriptions
+        await client.subscribe(my_machine.topic_receive, 1)  # renew subscriptions
         
         
 
@@ -83,7 +83,7 @@ config['wifi_pw'] = '741852963'
 config['user'] = secrets.MQTT_USERNAME
 config['password'] = secrets.MQTT_PASSWORD
 
-config['client_id'] = machines.device
+config['client_id'] = my_machine.device
 config["port"]= secrets.MQTT_PORT
 config["ssl"]= secrets.MQTT_SSL
 config["ssl_params"] = secrets.MQTT_SSL_PARAMS
@@ -121,7 +121,7 @@ async def main(client):
 #        print(hdc1080.temperature())
 #        print(hdc1080.humidity())
     output = {"test"} #{"devicename":str(machines.device),"roomname":str(machines.name),"ip": str(client.ip), "temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(dim),"lastmotion":0,"autobrightness":0}
-    await client.publish(machines.topic_send, f'jsonDiscovery:{output}', qos = 0)
+    await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
 
 print("to test, run test()")
 asyncio.create_task(heartbeat())
