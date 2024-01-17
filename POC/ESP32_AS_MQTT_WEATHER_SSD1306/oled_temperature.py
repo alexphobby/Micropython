@@ -42,8 +42,7 @@ ir = ir_remote_read(ir_pin,ir_callback)
 
 from ssd1306 import SSD1306_I2C
 from writer import Writer
-import freesans20
-import consolas16,consolas20
+import consolas16
 
 #Init Oled display i2c scan= [60]
 oled = SSD1306_I2C(128, 64, i2c)

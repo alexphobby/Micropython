@@ -5,7 +5,7 @@ from CONNECTWIFI import *
 wifi = CONNECTWIFI()
 
 from senko import Senko
-OTA = Senko(user="alexphobby",branch = "main", repo="Micropython", working_dir="POC/ESP32_AS_MQTT_WEATHER_SSD1306", files=["*"])
+OTA = Senko(user="alexphobby",branch = "main", repo="Micropython",headers = , working_dir="POC/ESP32_AS_MQTT_WEATHER_SSD1306", files=["*"])
 OTA.update()
 
 if OTA.update():
