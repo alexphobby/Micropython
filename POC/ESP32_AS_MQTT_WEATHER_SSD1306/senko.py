@@ -5,6 +5,7 @@ import gc
 class Senko:
     raw = "http://raw.githubusercontent.com"
     github = "http://github.com"
+    github_api = "http://api.github.com/repos"# + alexphobby/Micropython/contents/POC/ESP32_AS_MQTT_WEATHER_SSD1306"
     headers = {}
 
     def __init__(self, user, repo, url=None, branch="master", working_dir="app", files=["boot.py", "main.py"] , all_folder=False, headers={}):
@@ -30,6 +31,8 @@ class Senko:
         """
         self.base_url = "{}/{}/{}".format(self.raw, user, repo) if user else url.replace(self.github, self.raw)
         self.url = url if url is not None else "{}/{}/{}".format(self.base_url, branch, working_dir)
+        self.github_api = "{}/{}/{}/{}".format(self.github_api, user,"contents", working_dir) 
+        
         #self.headers = headers
         
         if "*" in files:
@@ -70,7 +73,7 @@ class Senko:
         
         if self.all_folder:
             print(f"headers: {self.headers}")
-            res = requests.get("http://api.github.com/repos/alexphobby/Micropython/contents/POC/ESP32_AS_MQTT_WEATHER_SSD1306",headers = self.headers).json()
+            res = requests.get(self.github_api,headers = self.headers).json()
             for obj in res:
                 print(f"Found file {obj['name']} in repo")
                 self.files.append(obj['name'])
