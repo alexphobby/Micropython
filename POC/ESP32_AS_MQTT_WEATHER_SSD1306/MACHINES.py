@@ -43,11 +43,11 @@ class MACHINES:
         
         elif self.guid == "64e833831c08":
             self.device = "a36_esp32c3_1"
-            self.name = "esp32c3_1"
+            self.name = "Birou"
         
         elif self.guid == "64e83382cb54":
             self.device = "a36_esp32c3_2"
-            self.name = "esp32c3_2"
+            self.name = "Dormitor"
         
         
         else:
