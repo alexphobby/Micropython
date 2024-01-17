@@ -193,7 +193,9 @@ class MQTT_base:
                 if e.args[0] not in BUSY_ERRORS:
                     raise
             if msg_size == 0:  # Connection closed by host
-                raise OSError(-1, "Connection closed by host")
+                print("Connection closed by host")
+                return
+                #raise OSError(-1, "Connection closed by host")
             if msg_size is not None:  # data received
                 size += msg_size
                 t = ticks_ms()
