@@ -76,14 +76,19 @@ async def mqtt_send_temp(client):
             await asyncio.sleep(10)
 
 
-async def heartbeat_oled():
+async def heartbeat_oled(client):
     global set_temp,ir,weather
     print("heartbeat_oled")
     print(ir)
     s = True
     last_minute = -1 #rtc.datetime()[5]
     
-    await client.connect()
+    #await client.connect()
+    if not client.isconnected():
+        write_custom_font.set_textpos(oled,20,0)
+        write_custom_font.printstring(f'Wait for wifi')
+        oled.show()    
+        
     while True:
         
         if last_minute == rtc.datetime()[5]:
@@ -114,10 +119,13 @@ async def heartbeat_oled():
             await asyncio.sleep_ms(1000)
             
 
+from asyncio import Event
+event = Event()
+
 try:
     asyncio.create_task(mqtt_send_temp(client))
     #asyncio.create_task(heartbeat_oled())
-    asyncio.run(heartbeat_oled())
+    asyncio.run(heartbeat_oled(client))
 finally:
         client.close()  # Prevent LmacRxBlk:1 errors
         asyncio.new_event_loop()
