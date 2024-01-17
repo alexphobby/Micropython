@@ -4,6 +4,7 @@ import machine
 class MACHINES:
     github_folder = ""
     devicetype = ""
+    features = []
     def __init__(self):
         """ MQTT guid"""
         self.guid = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
@@ -47,6 +48,7 @@ class MACHINES:
             self.name = "Birou"
             self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
             
         
         elif self.guid == "64e83382cb54":
@@ -63,5 +65,5 @@ class MACHINES:
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
             
-        print(f"Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
-
+        print(f"My machine: Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+        print(f"My machine: Features: {self.features}")
