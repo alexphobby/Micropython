@@ -25,7 +25,7 @@ config = {
     "clean": True,
     "max_repubs": 4,
     "will": None,
-    "subs_cb": lambda *_: None,
+    "subs_cb": lambda *_: "sub_cb",
     "wifi_coro": "",
     "connect_coro": "",
     "ssid": None,
@@ -57,13 +57,9 @@ async def wifi_han(state):
 # If you connect with clean_session True, must re-subscribe (MQTT spec 3.1.2.4)
 async def conn_han(client):
     print("Subscribe to foo")
-    await client.subscribe('foo_topic', 1)
+    await client.subscribe(my_machine.topic_receive, 1)
+    await client.subscribe("to/#", 1)
 
-async def messages(client):  # Respond to incoming messages
-    global dim
-    async for topic, msg, retained in client.queue:
-        print(f'Received {(topic, msg, retained)}')
-        #print(f'Message: {msg.}')
         
 
 async def up(client):  # Respond to connectivity being (re)established
@@ -126,7 +122,7 @@ async def main(client):
 print("to test, run test()")
 asyncio.create_task(heartbeat())
 asyncio.create_task(up(client))
-asyncio.create_task(messages(client))
+
 
 
 def test():

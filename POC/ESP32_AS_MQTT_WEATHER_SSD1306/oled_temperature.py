@@ -67,10 +67,21 @@ async def mqtt_send_temp(client):
             print(f"Send mqtt message on {my_machine.topic_send}")
             output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
             await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
-            await asyncio.sleep(10)
+            await asyncio.sleep(60)
         except Exception as ex:
             print(f"mqtt_send error: {ex}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(60)
+
+
+async def messages(client):  # Respond to incoming messages
+    global dim
+    while True:
+        async for topic, msg, retained in client.queue:
+            print(f'Received {(topic, msg, retained)}')
+            #print(f'Message: {msg.}')
+            if msg == "discovery":
+                await (mqtt_send_temp(client))
+        await asyncio.sleep(0.5)
 
 
 async def heartbeat_oled(client):
@@ -121,6 +132,7 @@ from asyncio import Event
 event = Event()
 
 try:
+    asyncio.create_task(messages(client))
     asyncio.create_task(mqtt_send_temp(client))
     #asyncio.create_task(heartbeat_oled())
     asyncio.run(heartbeat_oled(client))
