@@ -70,31 +70,34 @@ class Senko:
 
     def _check_all(self):
         changes = []
-        
-        if self.all_folder:
-            print(f"headers: {self.headers}")
-            res = requests.get(self.github_api,headers = self.headers).json()
-            for obj in res:
-                print(f"Found file {obj['name']} in repo")
-                self.files.append(obj['name'])
-            res =""
+        try:
             gc.collect()
+            if self.all_folder:
+                print(f"headers: {self.headers}")
+                res = requests.get(self.github_api,headers = self.headers).json()
+                for obj in res:
+                    print(f"Found file {obj['name']} in repo")
+                    self.files.append(obj['name'])
+                res =""
+                gc.collect()
 
-        for file in self.files:
-            print(f"Local check file: {file}")
-            latest_version = self._get_file(self.url + "/" + file)
-            if latest_version is None:
-                continue
+            for file in self.files:
+                print(f"Local check file: {file}")
+                latest_version = self._get_file(self.url + "/" + file)
+                if latest_version is None:
+                    continue
 
-            try:
-                with open(file, "r") as local_file:
-                    local_version = local_file.read()
-            except:
-                local_version = ""
+                try:
+                    with open(file, "r") as local_file:
+                        local_version = local_file.read()
+                except:
+                    local_version = ""
 
-            if not self._check_hash(latest_version, local_version):
-                changes.append(file)
-            gc.collect()
+                if not self._check_hash(latest_version, local_version):
+                    changes.append(file)
+                gc.collect()
+        except Exception as ex:
+            print(f"Error in _check_all: {ex}")
 
         return changes
 
