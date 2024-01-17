@@ -5,6 +5,7 @@
 #hdc.temperature()
 
 import machine
+import sys
 from HDC1080 import HDC1080
 from machine import Pin
 
@@ -12,11 +13,15 @@ class hdc1080_util:
     
     i2c=""
     hdc1080 = ""
-    def __init__(self):
-    
-        
+    def __init__(self,i2c = ""):
+        self.i2c = i2c
         try:
-            self.i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
+            if (self.i2c == "" and sys.platform == "esp32"):
+                print("ESP32")
+                self.i2c = machine.I2C(0,scl=machine.Pin(3),sda=machine.Pin(4))
+            elif (self.i2c == ""):
+                print("non ESP32")
+                self.i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
         except:
             print("no i2c")
             
@@ -38,7 +43,7 @@ class hdc1080_util:
         return temperature
     
     def humidity(self):
-        try
+        try:
             humidity = int(self.hdc1080.read_humidity())
         except:
             humidity=0

@@ -1,7 +1,7 @@
 import network
 import urequests
 
-import secrets
+#import secrets
 
 import time
 import ntptime
@@ -15,15 +15,16 @@ from machine import PWM
 
 #DS
 import onewire,ds18x20
-from BH1750 import BH1750
-from HDC1080 import HDC1080
-i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
-bh1750 = BH1750(i2c)
-print(f"Lux: {round(bh1750.luminance(bh1750.CONT_HIRES_2)),1}")
-hdc1080 = HDC1080(i2c)
-print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
-print(f"Humidity: {int(hdc1080.read_humidity())}")
+#from BH1750 import BH1750
+from hdc1080_util import hdc1080_util
 
+#i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
+#bh1750 = BH1750(i2c)
+#print(f"Lux: {round(bh1750.luminance(bh1750.CONT_HIRES_2)),1}")
+hdc1080 = hdc1080_util
+#print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
+#print(f"Humidity: {int(hdc1080.read_humidity())}")
+print(hdc1080.temperature())
 #ds_pwr = Pin(15,Pin.OUT)
 #ds_pwr.on()
 time.sleep(0.1)

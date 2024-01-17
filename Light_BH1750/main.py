@@ -10,8 +10,8 @@ import sys
 
 #sys.exit()
 import machine
-from machine import Pin
-from machine import PWM
+from machine import Pin,PWM
+
 
 #DS
 import onewire,ds18x20

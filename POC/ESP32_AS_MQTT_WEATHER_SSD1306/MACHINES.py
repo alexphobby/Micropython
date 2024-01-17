@@ -2,7 +2,8 @@ import ubinascii
 import machine
 
 class MACHINES:
-    
+    github_folder = ""
+    devicetype = ""
     def __init__(self):
         """ MQTT guid"""
         self.guid = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
@@ -43,11 +44,14 @@ class MACHINES:
         
         elif self.guid == "64e833831c08":
             self.device = "a36_esp32c3_1"
-            self.name = "esp32c3_1"
+            self.name = "Birou"
+            self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            
         
         elif self.guid == "64e83382cb54":
             self.device = "a36_esp32c3_2"
-            self.name = "esp32c3_2"
+            self.name = "Dormitor"
         
         
         else:

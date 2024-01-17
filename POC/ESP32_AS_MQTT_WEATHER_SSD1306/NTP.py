@@ -27,9 +27,10 @@ class NTP:
 
 
     async def update_ntp(self):
+        
         while True:
             
-            if self.wlan.isconnected() and self.last_update == 0 or self.last_update != self.rtc.datetime()[2]:
+            if self.wlan.isconnected() and (self.last_update == 0 or self.last_update != self.rtc.datetime()[2]):
                 print("Get ntp time")
                 err=True
                 retry_count = 50
@@ -39,7 +40,7 @@ class NTP:
                         ntptime.settime()
                         print(f"NTP OK, Time: {self.rtc.datetime()}") #, current day: {self.rtc.datetime()[2]}")
                         self.last_update = self.rtc.datetime()[2]
-                        asyncio.sleep_ms(500)
+                        asyncio.sleep_ms(100)
                         await self.update_timezone()
                         err=False
                         
@@ -49,11 +50,13 @@ class NTP:
                         retry_count-=1
                         print(f"err ntp, retry count: {retry_count}, Err: {ex}")
                         asyncio.sleep(0.6)
-                await asyncio.sleep_ms(10)
+                await asyncio.sleep(50)
+                #await asyncio.sleep_ms(10)
             else:
-                pass
+                await asyncio.sleep(5)
+                #pass
                #print(f"last update: {self.last_update}; RTC: {self.rtc.datetime()[2]}") 
-            await asyncio.sleep(50)
+            
             
     async def update_timezone(self):
             err=True
