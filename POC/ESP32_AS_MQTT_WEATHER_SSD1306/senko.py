@@ -78,7 +78,7 @@ class Senko:
                 for obj in res:
                     print(f"Found file {obj['name']} in repo")
                     self.files.append(obj['name'])
-                res =""
+                res = None
                 gc.collect()
 
             for file in self.files:
