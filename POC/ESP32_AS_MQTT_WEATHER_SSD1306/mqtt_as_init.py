@@ -1,7 +1,6 @@
 import secrets
 from MACHINES import MACHINES
 
-
 import asyncio
 from ubinascii import hexlify
 from mqtt_as_slim import MQTTClient
@@ -123,9 +122,6 @@ async def main(client):
 #        print(hdc1080.humidity())
     output = {"test"} #{"devicename":str(machines.device),"roomname":str(machines.name),"ip": str(client.ip), "temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(dim),"lastmotion":0,"autobrightness":0}
     await client.publish(machines.topic_send, f'jsonDiscovery:{output}', qos = 0)
-        #await client.publish(machines.topic_send, f'{hdc1080.temperature()}', qos = 1)
-        #n += 1
-
 
 print("to test, run test()")
 asyncio.create_task(heartbeat())
@@ -133,13 +129,7 @@ asyncio.create_task(up(client))
 asyncio.create_task(messages(client))
 
 
-#asyncio.create_task(heartbeat())
-
 def test():
-    #asyncio.create_task(heartbeat())
-    
-    #asyncio.create_task(main(client))
-
     try:
         asyncio.run(main(client))
     finally:
