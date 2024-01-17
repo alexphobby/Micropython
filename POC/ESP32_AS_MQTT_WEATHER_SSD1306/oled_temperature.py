@@ -82,7 +82,8 @@ async def heartbeat_oled(client):
     s = True
     last_minute = -1 #rtc.datetime()[5]
     
-    #await client.connect()
+    await client.connect()
+    
     if not client.isconnected():
         write_custom_font.set_textpos(oled,20,0)
         write_custom_font.printstring(f'Wait for wifi')
