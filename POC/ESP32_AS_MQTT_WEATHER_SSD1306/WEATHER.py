@@ -17,7 +17,7 @@ class WEATHER:
                     gc.collect()
                     self.weather = requests.get("http://api.open-meteo.com/v1/forecast?latitude=44.42&longitude=26.06&hourly=temperature_2m,precipitation&timezone=Europe%2FMoscow&forecast_days=1").json()
                     
-                    print(f"Outside temp: {self.weather["hourly"]["temperature_2m"][time.localtime()[3]]}")
+                    #print(f"Outside temp: {self.weather["hourly"]["temperature_2m"][time.localtime()[3]]}")
                     for precipitation in self.weather["hourly"]["precipitation"]:
                         #print(weather["hourly"]["precipitation"][hour])
                         if self.weather["hourly"]["precipitation"][hour] > 0.5:
@@ -35,7 +35,7 @@ class WEATHER:
     def temperature(self):
         temp = -100
         try:
-            return self.weather["hourly"]["temperature_2m"][time.localtime()[3]]
+            return round(self.weather["hourly"]["temperature_2m"][time.localtime()[3]])
         except Exception as ex:
             print(f"Temp error {ex}")
             return -100
