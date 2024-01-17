@@ -31,7 +31,7 @@ class Senko:
         """
         self.base_url = "{}/{}/{}".format(self.raw, user, repo) if user else url.replace(self.github, self.raw)
         self.url = url if url is not None else "{}/{}/{}".format(self.base_url, branch, working_dir)
-        self.github_api = "{}/{}/{}/{}".format(self.github_api, user,"contents", working_dir) 
+        self.github_api = "{}/{}/{}/{}/{}".format(self.github_api, user,repo,"contents", working_dir) 
         
         #self.headers = headers
         
@@ -70,11 +70,12 @@ class Senko:
 
     def _check_all(self):
         changes = []
-        try:
+        if True: #try:
             gc.collect()
             if self.all_folder:
-                print(f"headers: {self.headers}")
+                print(f"Headers: {self.headers}, URL={self.github_api}")
                 res = requests.get(self.github_api,headers = self.headers).json()
+                print(res)
                 for obj in res:
                     print(f"Found file {obj['name']} in repo")
                     self.files.append(obj['name'])
@@ -96,8 +97,8 @@ class Senko:
                 if not self._check_hash(latest_version, local_version):
                     changes.append(file)
                 gc.collect()
-        except Exception as ex:
-            print(f"Error in _check_all: {ex}")
+        #except Exception as ex:
+        #    print(f"Error in _check_all: {ex}")
 
         return changes
 
