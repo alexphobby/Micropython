@@ -534,9 +534,6 @@ class MQTTClient(MQTT_base):
         self._in_connect = False
         self._has_connected = False  # Define 'Clean Session' value to use.
         self._tasks = []
-        if ESP8266:
-            import esp
-            esp.sleep_type(0)  # Improve connection integrity at cost of power consumption.
 
     async def wifi_connect(self, quick=False):
         s = self._sta_if
