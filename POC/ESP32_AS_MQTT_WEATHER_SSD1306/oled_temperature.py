@@ -65,7 +65,7 @@ async def mqtt_send_temp(client):
     while True:
         try:
             print(f"Send mqtt message on {my_machine.topic_send}")
-            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"ip": str(client.ip), "temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
             await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
             await asyncio.sleep(10)
         except Exception as ex:
