@@ -3,7 +3,7 @@ import machine
 
 class MACHINES:
     github_folder = ""
-    devicetype = 
+    devicetype = ""
     def __init__(self):
         """ MQTT guid"""
         self.guid = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
