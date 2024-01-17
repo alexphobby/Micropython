@@ -4,9 +4,7 @@
 
 #print(weather.temperature())
 from i2c_init import *
-
 from mqtt_as_init import *
-
 from machine import Pin
 from ir_remote_read import ir_remote_read
 from my_remotes import *
