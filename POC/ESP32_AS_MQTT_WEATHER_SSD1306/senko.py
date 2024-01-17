@@ -95,6 +95,8 @@ class Senko:
 
                 if not self._check_hash(latest_version, local_version):
                     changes.append(file)
+                latest_version = None
+                local_version = None
                 gc.collect()
         #except Exception as ex:
         #    print(f"Error in _check_all: {ex}")
