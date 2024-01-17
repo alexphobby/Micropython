@@ -54,8 +54,11 @@ class Senko:
 
     def _get_file(self, url):
         #print(f"url: {url}")
+        gc.collect()
         payload = requests.get(url, headers=self.headers)
         code = payload.status_code
+        text = payload.text
+        gc.collect()
 
         if code == 200:
             return payload.text
