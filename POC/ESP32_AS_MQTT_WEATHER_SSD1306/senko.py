@@ -61,10 +61,11 @@ class Senko:
         payload = requests.get(url, headers=self.headers)
         code = payload.status_code
         text = payload.text
+        payload = None
         gc.collect()
 
         if code == 200:
-            return payload.text
+            return text
         else:
             return None
 
