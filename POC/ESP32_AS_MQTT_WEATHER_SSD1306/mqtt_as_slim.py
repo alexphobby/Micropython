@@ -459,7 +459,9 @@ class MQTT_base:
         if res is None:
             return
         if res == b"":
-            raise OSError(-1, "Empty response")
+            print("Empty response")
+            return
+            #raise OSError(-1, "Empty response")
 
         if res == b"\xd0":  # PINGRESP
             await self._as_read(1)  # Update .last_rx time
@@ -475,7 +477,9 @@ class MQTT_base:
             if pid in self.rcv_pids:
                 self.rcv_pids.discard(pid)
             else:
-                raise OSError(-1, "Invalid pid in PUBACK packet")
+                print("Invalid pid in PUBACK packet")
+                return
+                #raise OSError(-1, "Invalid pid in PUBACK packet")
 
         if op == 0x90:  # SUBACK
             resp = await self._as_read(4)
@@ -629,10 +633,12 @@ class MQTTClient(MQTT_base):
     # Launched by .connect(). Runs until connectivity fails. Checks for and
     # handles incoming messages.
     async def _handle_msg(self):
+        print("_handle_msg")
         try:
             while self.isconnected():
                 async with self.lock:
                     await self.wait_msg()  # Immediate return if no message
+                print("timing receive")
                 await asyncio.sleep_ms(_DEFAULT_MS)  # Let other tasks get lock
 
         except OSError:
