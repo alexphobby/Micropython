@@ -67,6 +67,7 @@ class MACHINES:
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
-            
-        print(f"My machine: Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
-        print(f"My machine: Features: {self.features}")
+        
+        print(f"Machine Name: {self.name})
+        print(f"Machine Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+        print(f"Machine Features: {self.features}")
