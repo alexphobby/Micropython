@@ -115,6 +115,11 @@ async def messages(client):  # Respond to incoming messages
                     
         await asyncio.sleep(0.5)
 
+from BH1750 import BH1750
+bh1750 = BH1750(i2c)
+
+print(f"Lux: {round(bh1750.luminance(bh1750.CONT_HIRES_2)),1}")
+
 lightReadings=[]
 lightReading = 0
 light = ADC(Pin(0,Pin.IN))
@@ -129,8 +134,9 @@ async def read_adc():
     while True:
         lightReadings.append(int(light.read_u16()))
         lightReadings.pop(0)
-        lightReading = round((sum(lightReadings)/len(lightReadings))*0.00252,1)
-        print(lightReading)
+        lightReading = round((sum(lightReadings)/len(lightReadings))*0.0252,1)
+        print(f"TEMT6000: {lightReading}; BH1750:{round(bh1750.luminance(bh1750.CONT_HIRES_2),1)}")
+        #print(f"Lux: {round(bh1750.luminance(bh1750.CONT_HIRES_2),1)}")
         await asyncio.sleep(1)
         
         
