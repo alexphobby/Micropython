@@ -117,7 +117,7 @@ async def heartbeat_oled(client):
             #write_custom_font.printstring(f'{rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}/{rtc.datetime()[0]} - {rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}')
             write_custom_font.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}     ')
             oled.show()
-            await asyncio.sleep_ms(1000)
+            await asyncio.sleep_ms(100)
             #last_minute = rtc.datetime()[6]
         else:
             print(f"update temp: {last_minute} != {rtc.datetime()[5]}")
@@ -137,7 +137,7 @@ async def heartbeat_oled(client):
                 #oled.drawCircle(50, 50, 10, WHITE)
             oled.show()
             last_minute = rtc.datetime()[5]
-            await asyncio.sleep_ms(1000)
+            await asyncio.sleep_ms(800)
             
 
 from asyncio import Event
