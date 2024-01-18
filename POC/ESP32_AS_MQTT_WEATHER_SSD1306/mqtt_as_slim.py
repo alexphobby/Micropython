@@ -28,7 +28,7 @@ from sys import platform
 VERSION = (0, 7, 1)
 
 # Default short delay for good SynCom throughput (avoid sleep(0) with SynCom).
-_DEFAULT_MS = const(300)
+_DEFAULT_MS = const(1000)
 _SOCKET_POLL_DELAY = const(5)  # 100ms added greatly to publish latency
 
 # Legitimate errors while waiting on a socket. See uasyncio __init__.py open_connection().
@@ -633,12 +633,10 @@ class MQTTClient(MQTT_base):
     # Launched by .connect(). Runs until connectivity fails. Checks for and
     # handles incoming messages.
     async def _handle_msg(self):
-        print("_handle_msg")
         try:
             while self.isconnected():
                 async with self.lock:
                     await self.wait_msg()  # Immediate return if no message
-                print("timing receive")
                 await asyncio.sleep_ms(_DEFAULT_MS)  # Let other tasks get lock
 
         except OSError:

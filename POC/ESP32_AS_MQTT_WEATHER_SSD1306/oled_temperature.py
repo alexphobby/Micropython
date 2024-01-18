@@ -61,7 +61,17 @@ write_custom_font.set_textpos(oled,0,0)
 write_custom_font.printstring(f"Loading...")
 oled.show()
 
-async def mqtt_send_temp(client):
+async def mqtt_send_temp(client,on_demand = False):
+    if on_demand:
+        try:
+            print(f"Send on demand message on {my_machine.topic_send}")
+            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+            await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
+            return
+        except Exception as ex:
+            print(f"mqtt_send error: {ex}")
+        return
+        
     while True:
         try:
             print(f"Send mqtt message on {my_machine.topic_send}")
@@ -80,7 +90,8 @@ async def messages(client):  # Respond to incoming messages
             print(f'Received {(topic, msg, retained)}')
             #print(f'Message: {msg.}')
             if msg == "discovery":
-                await (mqtt_send_temp(client))
+                print("Send discovery result")
+                await (mqtt_send_temp(client,True))
         await asyncio.sleep(0.5)
 
 
