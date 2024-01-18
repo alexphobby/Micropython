@@ -42,6 +42,9 @@ from ssd1306 import SSD1306_I2C
 from writer import Writer
 import consolas16
 
+from dim import *
+
+dim = Dim(pin1=8,min1= 0,max1 = 65535,fade_time_ms=100)
 #Init Oled display i2c scan= [60]
 oled = SSD1306_I2C(128, 64, i2c)
 
@@ -99,8 +102,23 @@ async def messages(client):  # Respond to incoming messages
                 gc.collect
                 import update
                 update.update()
+            else:
+                try:
+                    command,strValue = msg.decode().split(':')
+                    print(f"Command: {command}, Value: {strValue}, command: {command}")
+                    #print(locals())
+                    await locals()[command](strValue)
+                except Exception as ex:
+                    print(ex)
+                    
+                    
         await asyncio.sleep(0.5)
 
+async def dim(new_value):
+    if "dim" in my_machine.features:
+        print(f"can dim to: {new_value}")
+        dim(setReqIndex1=int(65535*new_value/100))
+        
 
 async def heartbeat_oled(client):
     global set_temp,ir,weather
@@ -155,7 +173,7 @@ try:
     #asyncio.create_task(heartbeat_oled())
     asyncio.run(heartbeat_oled(client))
 finally:
-        client.close()  # Prevent LmacRxBlk:1 errors
-        asyncio.new_event_loop()
+    client.close()  # Prevent LmacRxBlk:1 errors
+    asyncio.new_event_loop()
 
 
