@@ -95,8 +95,10 @@ async def messages(client):  # Respond to incoming messages
                 await (mqtt_send_temp(client,True))
             elif msg == "update" and topic == my_machine.topic_receive:
                 print("Update from GitHub")
+                import gc
+                gc.collect
                 import update
-                update()
+                update.update()
         await asyncio.sleep(0.5)
 
 
