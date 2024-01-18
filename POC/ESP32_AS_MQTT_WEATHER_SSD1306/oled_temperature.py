@@ -20,6 +20,8 @@ ir_pin = Pin(1,Pin.IN,Pin.PULL_UP)
 #    print(f"Addr: {addr} - Data: {data}")
 
 #ir = NEC_IR(ir_pin, cb, True, Pin(8,Pin.OUT))
+auto_dim = False
+required_lumens = 0
 
 def ir_callback(remote,command,combo):
     print((remote,command))
@@ -89,7 +91,7 @@ async def mqtt_send_temp(client,on_demand = False):
 
 
 async def messages(client):  # Respond to incoming messages
-    global dim
+    global dim,auto_dim,lightReading,required_lumens
     while True:
         async for topic, msg, retained in client.queue:
             print(f'Received {(topic, msg, retained)}')
@@ -107,8 +109,17 @@ async def messages(client):  # Respond to incoming messages
                 try:
                     command,strValue = msg.decode().split(':')
                     print(f"Command: {command}, Value: {strValue}, command: {command}")
+                    if command == "setAutoBrightness" and strValue == "true":
+                        await asyncio.sleep(2)
+                        auto_dim = True
+                        required_lumens = lightReading
+                        print(f"Required: {lightReading}")
+                    elif command == "setAutoBrightness" and strValue == "false":
+                        auto_dim = False
+                        #required_lumens = lightReading
                     #print(locals())
-                    await locals()[command](strValue)
+                    else:
+                        await locals()[command](strValue)
                 except Exception as ex:
                     print(ex)
                     
@@ -125,6 +136,14 @@ lightReading = 0
 light = ADC(Pin(0,Pin.IN))
 light.atten(ADC.ATTN_11DB)
 
+def get_lightReading():
+    global lightReading
+    return lightReading
+
+def get_required_lumens():
+    global required_lumens
+    return required_lumens
+
 async def read_adc():
     global lightReadings, lightReading
     for i in range(0,3):
@@ -140,22 +159,20 @@ async def read_adc():
         await asyncio.sleep(0.2)
         
         
-auto_dim = True
-required_lumens = 200
 async def dim_auto():
-    global auto_dim,lightReading,required_lumens
+    global auto_dim
     #brightness_values = len(brightness_map)
     while True:
-        print(f"required_lumens: {required_lumens} - lightReading: {lightReading} Dimmer index: {dimmer.index1}")
-        if auto_dim and lightReading < required_lumens - 10 and dimmer.index1 < dimmer.max1 - 10:
-            print(f"Dim up to: {dimmer.index1 + 1}")
+        print(f"Auto: {auto_dim}; Required_lm: {get_required_lumens()} - lightReading: {lightReading} Dimmer index: {dimmer.index1}")
+        if auto_dim and get_lightReading() < get_required_lumens() - 10 and dimmer.index1 < dimmer.max1 - 10:
+            print(f"Dim up to: {dimmer.index1 + 10}")
             
             dimmer.setReqIndex1(dimmer.index1 + 10)
             
-        elif auto_dim and lightReading > required_lumens + 10 and dimmer.index1 > dimmer.min1+10:
-            print(f"Dim down to: {dimmer.index1 - 1}")
+        elif auto_dim and get_lightReading() > get_required_lumens() + 10 and dimmer.index1 > dimmer.min1+10:
+            print(f"Dim down to: {dimmer.index1 - 10}")
             dimmer.setReqIndex1(dimmer.index1 - 10)
-        await asyncio.sleep_ms(500)
+        await asyncio.sleep_ms(1000)
             
         
         
