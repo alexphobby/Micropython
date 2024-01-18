@@ -5,7 +5,7 @@
 #print(weather.temperature())
 from i2c_init import *
 from mqtt_as_init import *
-from machine import Pin
+from machine import Pin,ADC
 from ir_remote_read import ir_remote_read
 from my_remotes import *
 
@@ -65,10 +65,11 @@ write_custom_font.printstring(f"Loading...")
 oled.show()
 
 async def mqtt_send_temp(client,on_demand = False):
+    global lightReading
     if on_demand:
         try:
             print(f"Send on demand message on {my_machine.topic_send}")
-            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(lightReading),"dim":str(0),"lastmotion":0,"autobrightness":0}
             await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
             return
         except Exception as ex:
@@ -114,6 +115,28 @@ async def messages(client):  # Respond to incoming messages
                     
         await asyncio.sleep(0.5)
 
+lightReadings=[]
+lightReading = 0
+light = ADC(Pin(0,Pin.IN))
+light.atten(ADC.ATTN_11DB)
+
+async def read_adc():
+    global lightReadings, lightReading
+    for i in range(0,20):
+        lightReadings.append(int(light.read_u16()))
+        await asyncio.sleep(0.1)
+        
+    while True:
+        lightReadings.append(int(light.read_u16()))
+        lightReadings.pop(0)
+        lightReading = round((sum(lightReadings)/len(lightReadings))*0.00252,1)
+        print(lightReading)
+        await asyncio.sleep(1)
+        
+        
+        
+        
+        
 async def dim(new_value):
     if "dim" in my_machine.features:
         print(f"can dim to: {new_value} - {(float(new_value)*242)/100}")
@@ -169,9 +192,11 @@ event = Event()
 
 try:
     asyncio.create_task(messages(client))
+    asyncio.create_task(read_adc())
     #asyncio.create_task(mqtt_send_temp(client)) #send discovery on interval#
     #asyncio.create_task(heartbeat_oled())
     asyncio.run(heartbeat_oled(client))
+    
 finally:
     client.close()  # Prevent LmacRxBlk:1 errors
     asyncio.new_event_loop()
