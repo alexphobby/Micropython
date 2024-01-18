@@ -71,16 +71,17 @@ async def mqtt_send_temp(client,on_demand = False):
         except Exception as ex:
             print(f"mqtt_send error: {ex}")
         return
-        
-    while True:
-        try:
-            print(f"Send mqtt message on {my_machine.topic_send}")
-            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
-            await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
-            await asyncio.sleep(60)
-        except Exception as ex:
-            print(f"mqtt_send error: {ex}")
-            await asyncio.sleep(60)
+        print("should not run")
+    else:
+        while True:
+            try:
+                print(f"Send mqtt message on {my_machine.topic_send}")
+                output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+                await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
+                await asyncio.sleep(60)
+            except Exception as ex:
+                print(f"mqtt_send error: {ex}")
+                await asyncio.sleep(60)
 
 
 async def messages(client):  # Respond to incoming messages
@@ -144,7 +145,7 @@ event = Event()
 
 try:
     asyncio.create_task(messages(client))
-    asyncio.create_task(mqtt_send_temp(client))
+    #asyncio.create_task(mqtt_send_temp(client)) #send discovery on interval#
     #asyncio.create_task(heartbeat_oled())
     asyncio.run(heartbeat_oled(client))
 finally:
