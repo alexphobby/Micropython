@@ -1,6 +1,6 @@
 from machine import Pin, ADC,Timer
 from machine import PWM
-from brightness_map import brightness_map
+from brightness_map_1024 import brightness_map_1024 as brightness_map
 class Dim:
     step=1
     state = 0
@@ -13,7 +13,7 @@ class Dim:
     ch2Enabled = False
     timer1 = Timer(0)
     fade_time_ms = 0
-    def __init__(self,pin1,min1,max1,fade_time_ms=10,pin2 = None,min2 = None,max2 = None,debug = False):
+    def __init__(self,pin1,min1 = 0,max1=len(brightness_map)-1,fade_time_ms=10,pin2 = None,min2 = None,max2 = None,debug = False):
         #self.state = value
         self.fade_time_ms = fade_time_ms
         self.min1 = min1
@@ -22,7 +22,7 @@ class Dim:
         self.min2 = min2
         self.max2 = max2
 
-        self.max_index = len(brightness_map)
+        self.max_index = len(brightness_map) - 1
 
         if pin1:
             self.pin1 = Pin(pin1,Pin.OUT,value = 0)
@@ -61,14 +61,14 @@ class Dim:
         #self.ch1Enabled = True
         if not self.ch1Enabled:
             return
-        
+        print(f"req: {reqIndex1}")
         if reqIndex1 == 0:
             print(f"Channel 1 off")
             self.reqIndex1 = 0
             #return
         
         elif reqIndex1 < self.min1:
-            print(f"Channel 1 outside working range required: {self.reqIndex1} between {self.min1} and {self.max1}")
+            print(f"Channel 1 outside working range required: {reqIndex1} between {self.min1} and {self.max1}")
             self.reqIndex1 = 0
             #return
         
@@ -76,9 +76,9 @@ class Dim:
             print(f"Channel 1 outside working range required: {self.reqIndex1} between {self.min1} and {self.max1}")
             self.reqIndex1 = self.max1
             #return
-        
+        else:
         #print(f"Setting req index 1 to {reqIndex1}")
-        self.reqIndex1 = reqIndex1
+            self.reqIndex1 = reqIndex1
         self.dimToSetpoint()
         
     def setReqIndex2(self,reqIndex2):
