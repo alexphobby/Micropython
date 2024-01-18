@@ -57,12 +57,16 @@ class Senko:
 
     def _get_file(self, url):
         #print(f"url: {url}")
-        gc.collect()
-        payload = requests.get(url, headers=self.headers)
-        code = payload.status_code
-        text = payload.text
-        payload = None
-        gc.collect()
+        try:
+            gc.collect()
+            payload = requests.get(url, headers=self.headers)
+            code = payload.status_code
+            text = payload.text
+            payload = None
+            gc.collect()
+        except ex as Exception:
+            print(f"Error getting file from url: {url}")
+            print(ex)
 
         if code == 200:
             return text
