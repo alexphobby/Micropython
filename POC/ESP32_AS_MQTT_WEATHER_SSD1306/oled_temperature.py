@@ -44,7 +44,7 @@ import consolas16
 
 from dim import *
 
-dim = Dim(pin1=8,min1= 0,max1 = 65535,fade_time_ms=100)
+dimmer = Dim(pin1=8,min1= 0,max1 = 243,fade_time_ms=100)
 #Init Oled display i2c scan= [60]
 oled = SSD1306_I2C(128, 64, i2c)
 
@@ -116,8 +116,8 @@ async def messages(client):  # Respond to incoming messages
 
 async def dim(new_value):
     if "dim" in my_machine.features:
-        print(f"can dim to: {new_value}")
-        dim(setReqIndex1=int(65535*new_value/100))
+        print(f"can dim to: {new_value} - {(float(new_value)*242)/100}")
+        dimmer.setReqIndex1(int((float(new_value)*243)/100))
         
 
 async def heartbeat_oled(client):
