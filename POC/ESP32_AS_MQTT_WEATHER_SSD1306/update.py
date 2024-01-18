@@ -8,6 +8,7 @@ def update():
     wifi = CONNECTWIFI.CONNECTWIFI()
     import MACHINES
     my_machine = MACHINES.MACHINES()
+    import machine
 
     from senko import Senko
     gc.collect()
