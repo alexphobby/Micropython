@@ -62,10 +62,12 @@ write_custom_font.printstring(f"Loading...")
 oled.show()
 
 async def mqtt_send_temp(client,on_demand = False):
+    global sender_count
     if on_demand:
+        sender_count +=1
         try:
             print(f"Send on demand message on {my_machine.topic_send}")
-            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0,"count":sender_count}
             await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
             return
         except Exception as ex:
@@ -75,8 +77,9 @@ async def mqtt_send_temp(client,on_demand = False):
     else:
         while True:
             try:
+                sender_count +=1
                 print(f"Send mqtt message on {my_machine.topic_send}")
-                output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0}
+                output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0,"count":sender_count}
                 await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
                 await asyncio.sleep(60)
             except Exception as ex:
@@ -164,7 +167,9 @@ event = Event()
 
 t = None
 tasks = []
+sender_count = 0
 async def main():
+    
     thb = asyncio.create_task(heartbeat(60))
     tup = asyncio.create_task(up(client))
 

@@ -48,7 +48,7 @@ class MACHINES:
             self.name = "Birou"
             self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity"]
+            self.features = ["thermometer","display","humidity","count"]
             
         
         elif self.guid == "64e83382cb54":
@@ -56,7 +56,7 @@ class MACHINES:
             self.name = "Dormitor"
             self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity","ambientlight"]
+            self.features = ["thermometer","display","humidity","ambientlight","count"]
         
         
         else:
