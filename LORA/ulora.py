@@ -67,6 +67,7 @@ class SPIConfig():
     esp8286_1 = (1, 14, 13, 12)
     esp32_1 = (1, 14, 13, 12)
     esp32_2 = (2, 18, 23, 19)
+    esp32_c3 = (1, 6, 7, 2)
 
 class LoRa(object):
     def __init__(self, spi_channel, interrupt, this_address, cs_pin, reset_pin=None, freq=868.0, tx_power=14,

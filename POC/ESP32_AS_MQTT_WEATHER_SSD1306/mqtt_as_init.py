@@ -39,11 +39,11 @@ def sub_cb(topic, msg, retained):
     print(f'Topic: "{topic.decode()}" Message: "{msg.decode()}" Retained: {retained}')
     
 # Demonstrate scheduler is operational.
-async def heartbeat():
+async def heartbeat(time = 10):
     print("heartbeat")
     s = True
     while True:
-        await asyncio.sleep_ms(60000)
+        await asyncio.sleep(time)
         print("heartbeat")
         #led(s)
         #s = not s
@@ -120,8 +120,8 @@ async def main(client):
     await client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
 
 print("to test, run test()")
-asyncio.create_task(heartbeat())
-asyncio.create_task(up(client))
+#asyncio.create_task(heartbeat())
+#asyncio.create_task(up(client))
 
 
 
