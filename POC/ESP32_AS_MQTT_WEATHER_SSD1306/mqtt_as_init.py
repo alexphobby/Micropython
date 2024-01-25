@@ -37,17 +37,6 @@ config = {
 # Subscription callback
 def sub_cb(topic, msg, retained):
     print(f'Topic: "{topic.decode()}" Message: "{msg.decode()}" Retained: {retained}')
-    
-# Demonstrate scheduler is operational.
-async def heartbeat(time = 10):
-    print("heartbeat")
-    s = True
-    while True:
-        await asyncio.sleep(time)
-        print("heartbeat")
-        #led(s)
-        #s = not s
-        #blink
 
 async def wifi_han(state):
     #led(not state)
