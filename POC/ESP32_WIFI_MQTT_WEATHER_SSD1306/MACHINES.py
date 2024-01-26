@@ -46,7 +46,7 @@ class MACHINES:
         elif self.guid == "64e833831c08":
             self.device = "a36_esp32c3_1"
             self.name = "Birou"
-            self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","count"]
             
@@ -54,7 +54,7 @@ class MACHINES:
         elif self.guid == "64e83382cb54":
             self.device = "a36_esp32c3_2"
             self.name = "Dormitor"
-            self.github_folder = "POC/ESP32_AS_MQTT_WEATHER_SSD1306"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","ambientlight","count"]
         
