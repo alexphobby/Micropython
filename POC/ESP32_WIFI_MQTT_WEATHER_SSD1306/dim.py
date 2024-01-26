@@ -185,5 +185,8 @@ class Dim:
         
         except:
             print(f"Error dimming to level: {self.index1} or {self.index2}")
+    def getPercent(self):
+        return int(float(reqIndex1)/self.max1)
+    
     #def __doc__(self):
         

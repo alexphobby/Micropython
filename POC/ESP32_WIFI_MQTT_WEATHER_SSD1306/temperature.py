@@ -6,12 +6,16 @@ import asyncio
 from WEATHER import *
 from NTP import *
 
+from dim import Dim
+from brightness_map_1024 import brightness_map_1024
+
 oled = False
 
 from machine import lightsleep
 
 from MACHINES import *
-from machine import Signal
+from machine import Signal,PWM,Pin
+
 
 my_machine = MACHINES()
 
@@ -19,8 +23,10 @@ from CONNECTWIFI_AS import *
 wifi = CONNECTWIFI_AS()
 weather = WEATHER(wifi.wlan)
 ir_pin = Pin(1,Pin.IN,Pin.PULL_UP)
-led = Signal(Pin(8,Pin.OUT,value = 1),invert=True)
-led.on()
+#led = Signal(Pin(8,Pin.OUT,value = 1),invert=True)
+#led.on()
+#led = PWM(Pin(8,Pin.OUT,value=0))
+dimmer = Dim(8,fade_time_ms = 60)
 #from ir_remote_read_demo import *
 
 
@@ -86,12 +92,18 @@ hdc1080 = hdc1080_util(i2c)
 from umqtt.robust import MQTTClient
 client = mqttClient(True,my_machine.device)
 
-
+dim_value = 0
+def dim(strValue):
+    global dim_value
+    print(f"Dim to: {strValue}")
+    dim_value = int(float(strValue)*10.24)
+    dimmer.setReqIndex1(dim_value)
 
 
 def mqtt_receive_cb(topic, msg):
     print(f'Received {(topic, msg)}')
-    if str(msg,"UTF-8") == "discovery":
+    msg = msg.decode()
+    if msg == "discovery":
         print("Send discovery result")
         task = asyncio.create_task(mqtt_send_temp(client,True))
         
@@ -101,6 +113,14 @@ def mqtt_receive_cb(topic, msg):
         gc.collect
         import update
         update.update()
+    else:
+        try:
+            command,strValue = msg.split(':')
+            print("Unpacked")
+            locals()[command](strValue)
+                
+        except Exception as ex:
+            print(f"cannot unpack: {msg}, {ex}")
 
 
 client.set_callback(mqtt_receive_cb)
@@ -124,7 +144,7 @@ async def mqtt_send_temp(client,on_demand = False):
         sender_count +=1
         try:
             print(f"Send on demand message on {my_machine.topic_send}")
-            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0,"count":sender_count}
+            output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":sender_count}
             client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
             print("published")
             await asyncio.sleep(5)
@@ -140,7 +160,7 @@ async def mqtt_send_temp(client,on_demand = False):
             try:
                 sender_count +=1
                 print(f"Send mqtt message on {my_machine.topic_send}")
-                output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0,"count":sender_count}
+                output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":sender_count}
                 client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
                 await asyncio.sleep(60)
             except Exception as ex:
@@ -219,7 +239,7 @@ async def heartbeat(client,time=1):
 
 def wifi_connect_done():
     print("wifi connect done")
-    led.off()
+    #led.off()
     if wifi.is_connected():
         print("Init NTP Time, obj: ntp")
         ntp = NTP(wifi.wlan)
