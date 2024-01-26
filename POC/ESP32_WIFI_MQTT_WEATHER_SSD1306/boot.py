@@ -5,11 +5,12 @@
 #webrepl.start()
 import time
 from machine import freq,reset_cause
-time.sleep(5)
+time.sleep(2)
 
 freq(80000000)
 print(f"Frequency set to: {freq()}")
 print(f"Reset cause: {reset_cause()}")
-import oled_temperature
+#import oled_temperature
+import temperature
 
 #test()

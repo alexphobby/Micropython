@@ -11,21 +11,21 @@ class WEATHER:
     async def update_weather(self):
         while True:
             if(self.wlan.isconnected()):
-                print("try to get weather details")
                 hour = 0
                 try:
                     gc.collect()
                     #self.weather = requests.get("http://api.open-meteo.com/v1/forecast?latitude=44.42&longitude=26.06&hourly=temperature_2m,precipitation&timezone=Europe%2FMoscow&forecast_days=1").json()
                     self.weather = requests.get("http://api.open-meteo.com/v1/forecast?latitude=44.42&longitude=26.06&hourly=apparent_temperature,precipitation&timezone=Europe%2FMoscow&forecast_days=1").json()
                     #print(f"Outside temp: {self.weather["hourly"]["temperature_2m"][time.localtime()[3]]}")
-                    for precipitation in self.weather["hourly"]["precipitation"]:
-                        #print(weather["hourly"]["precipitation"][hour])
+                    for hour in range(time.localtime()[3],23):
                         if self.weather["hourly"]["precipitation"][hour] > 0.5:
                             print(f"Precipitation at {hour}:00")
-                        hour +=1
+                            continue
+                                
                 except Exception as ex:
                     print(f"Weather Exception {ex}")
-                await asyncio.sleep(30*60)
+                print("await to retrive weather")
+                await asyncio.sleep(30) #30*60)
             else:
                 print("No weather yet, no wlan")
                 await asyncio.sleep(5)

@@ -6,15 +6,21 @@ import asyncio
 from WEATHER import *
 from NTP import *
 
+oled = False
+
 from machine import lightsleep
 
 from MACHINES import *
+from machine import Signal
+
 my_machine = MACHINES()
 
 from CONNECTWIFI_AS import *
 wifi = CONNECTWIFI_AS()
 weather = WEATHER(wifi.wlan)
 ir_pin = Pin(1,Pin.IN,Pin.PULL_UP)
+led = Signal(Pin(8,Pin.OUT,value = 1),invert=True)
+led.on()
 #from ir_remote_read_demo import *
 
 
@@ -41,28 +47,33 @@ def mqttClient(ssl_enabled = False,name="pico"):
     return client
 
 def ir_callback(remote,command,combo):
-    print((remote,command))
+    #print((remote,command))
+    button = ""
     try:
-        print(remote_samsung[combo])
+        button = remote_samsung[combo]
         return
     except:
         pass
     
     try:
-        print(remote_tiny[combo])
+        button = remote_tiny[combo]
     except:
         pass
+    if len(button) > 0:
+        print(f"Remote button : {button}")
+    
+    
     #print((remote,command))
     
     
 ir = ir_remote_read(ir_pin,ir_callback)
 
-from ssd1306 import SSD1306_I2C
-from writer import Writer
-import consolas16
+#from ssd1306 import SSD1306_I2C
+#from writer import Writer
+#import consolas16
 
 #Init Oled display i2c scan= [60]
-oled = SSD1306_I2C(128, 64, i2c)
+#oled = SSD1306_I2C(128, 64, i2c)
 
 #ir_remote_read(ir_pin,ir_callback)
 from machine import RTC
@@ -95,13 +106,13 @@ def mqtt_receive_cb(topic, msg):
 client.set_callback(mqtt_receive_cb)
 
 
-oled.fill(0)
-write_custom_font = Writer(oled, consolas16)
+#oled.fill(0)
+#write_custom_font = Writer(oled, consolas16)
 
 #write_custom_font = writer.Writer(oled, myfont) #freesans20
-write_custom_font.set_textpos(oled,0,0)
-write_custom_font.printstring(f"Loading...")
-oled.show()
+#write_custom_font.set_textpos(oled,0,0)
+#write_custom_font.printstring(f"Loading...")
+#oled.show()
 
 async def mqtt_send_temp(client,on_demand = False):
     global sender_count
@@ -116,6 +127,8 @@ async def mqtt_send_temp(client,on_demand = False):
             output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(hdc1080.temperature()),"humidity":str(hdc1080.humidity()),"ambient":str(0),"dim":str(0),"lastmotion":0,"autobrightness":0,"count":sender_count}
             client.publish(my_machine.topic_send, f'jsonDiscovery:{output}', qos = 0)
             print("published")
+            await asyncio.sleep(5)
+            #lightsleep(20000)
             return
         except Exception as ex:
             print(f"mqtt_send error: {ex}")
@@ -185,12 +198,7 @@ async def heartbeat_oled(wifi):
             lightsleep(20000)
             await asyncio.sleep_ms(800)
             
-async def err():
-    while True:
-        print("err")
-        await asyncio.sleep_ms(20000)
-        raise Exception("raise ex")
-    
+
 from asyncio import Event
 event = Event()
 
@@ -200,7 +208,6 @@ sender_count = 0
 
 async def heartbeat(client,time=1):
     while True:
-        print(f"wifi status: {wifi.wlan.status()}")
         if wifi.is_connected():
             if True: #try:
                 #await asyncio.sleep(30)
@@ -212,6 +219,7 @@ async def heartbeat(client,time=1):
 
 def wifi_connect_done():
     print("wifi connect done")
+    led.off()
     if wifi.is_connected():
         print("Init NTP Time, obj: ntp")
         ntp = NTP(wifi.wlan)
@@ -221,6 +229,7 @@ def wifi_connect_done():
         print("subscribe")
         client.subscribe(topic = my_machine.topic_receive)
         client.subscribe(topic = b"to/*")
+        gc.collect()
     
 async def wifi_connection(wifi):
     while True:
@@ -256,7 +265,7 @@ async def main():
             
             
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client)) #send discovery on interval#
-    toled = asyncio.create_task(heartbeat_oled(wifi))
+    #toled = asyncio.create_task(heartbeat_oled(wifi))
     
     thb = asyncio.create_task(heartbeat(client,0.5))
     while True:
@@ -284,16 +293,8 @@ async def main():
                 thb=None
                 gc.collect()
                 thb = asyncio.create_task(heartbeat(client,1))
-             
-                
-            #if t_mqtt_discovery.done():
-            #    print("DISCOVERY is done")
-            #    t_mqtt_discovery=None
-            #    gc.collect()
-            #    t_mqtt_discovery = asyncio.create_task(messages(client))
             
-            
-            if toled.done():
+            if False: #toled.done():
                 print("ERR is done")
                 toled=None
                 gc.collect()
@@ -318,5 +319,6 @@ except Exception as ex:
 finally:
     print(f"finally: ")
     asyncio.new_event_loop()
+
 
 
