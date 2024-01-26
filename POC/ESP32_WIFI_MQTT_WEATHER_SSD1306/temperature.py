@@ -267,7 +267,7 @@ async def main():
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client)) #send discovery on interval#
     #toled = asyncio.create_task(heartbeat_oled(wifi))
     
-    thb = asyncio.create_task(heartbeat(client,0.5))
+    thb = asyncio.create_task(heartbeat(client,0.1))
     while True:
         try:
             await asyncio.sleep(5)
