@@ -231,7 +231,7 @@ async def heartbeat(client,time=1):
         if wifi.is_connected():
             if True: #try:
                 #await asyncio.sleep(30)
-                #client.ping()
+                client.ping()
                 client.check_msg()
             #except Exception as ex:
             #    print(f"heartbeat error {ex}")
@@ -278,7 +278,7 @@ async def mq_connection(wifi):
 async def main():
     t_wifi_connection = asyncio.create_task(wifi_connection(wifi))
     
-    #t_mq_connection = asyncio.create_task(mq_connection(wifi))
+    t_mq_connection = asyncio.create_task(mq_connection(wifi))
        #loop = asyncio.get_event_loop()
     #terr =  asyncio.create_task(err())
         
@@ -287,7 +287,7 @@ async def main():
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client)) #send discovery on interval#
     #toled = asyncio.create_task(heartbeat_oled(wifi))
     
-    thb = asyncio.create_task(heartbeat(client,0.1))
+    thb = asyncio.create_task(heartbeat(client,0.2))
     while True:
         try:
             await asyncio.sleep(5)
@@ -301,7 +301,7 @@ async def main():
                 t_wifi_connection = asyncio.create_task(t_wifi_connection(wifi))
             
             
-            if False: #t_mq_connection.done():
+            if t_mq_connection.done():
                 print("t_mq_connection is done")
                 t_mq_connection=None
                 gc.collect()

@@ -58,7 +58,13 @@ class MACHINES:
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","ambientlight","count"]
         
-        
+        elif self.guid == "ecda3bc03ae0":
+            self.device = "a36_esp32c3_3"
+            self.name = "Dormitor_2"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","ambientlight","count"]
+
         else:
             print("Machine not defined")
             

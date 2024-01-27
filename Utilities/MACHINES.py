@@ -2,7 +2,9 @@ import ubinascii
 import machine
 
 class MACHINES:
-    
+    github_folder = ""
+    devicetype = ""
+    features = []
     def __init__(self):
         """ MQTT guid"""
         self.guid = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
@@ -43,13 +45,26 @@ class MACHINES:
         
         elif self.guid == "64e833831c08":
             self.device = "a36_esp32c3_1"
-            self.name = "esp32c3_1"
+            self.name = "Birou"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","count"]
+            
         
         elif self.guid == "64e83382cb54":
             self.device = "a36_esp32c3_2"
-            self.name = "esp32c3_2"
+            self.name = "Dormitor"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","ambientlight","count"]
         
-        
+        elif self.guid == "ecda3bc03ae0":
+            self.device = "a36_esp32c3_3"
+            self.name = "Dormitor_2"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","ambientlight","count"]
+
         else:
             print("Machine not defined")
             
@@ -58,6 +73,7 @@ class MACHINES:
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
-            
-        print(f"Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
-
+        
+        print(f"Machine Name: {self.name}")
+        print(f"Machine Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
+        print(f"Machine Features: {self.features}")

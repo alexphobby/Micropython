@@ -10,6 +10,7 @@ class WEATHER:
     
     async def update_weather(self):
         while True:
+            print("update weather if wifi connected")
             if(self.wlan.isconnected()):
                 hour = 0
                 try:
@@ -24,7 +25,7 @@ class WEATHER:
                                 
                 except Exception as ex:
                     print(f"Weather Exception {ex}")
-                print("await to retrive weather")
+                #print("await to retrive weather")
                 await asyncio.sleep(30) #30*60)
             else:
                 print("No weather yet, no wlan")

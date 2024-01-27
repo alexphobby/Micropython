@@ -10,7 +10,7 @@ from HDC1080 import HDC1080
 from machine import Pin
 
 class hdc1080_util:
-    
+    enabled = False
     i2c=""
     hdc1080 = ""
     def __init__(self,i2c = ""):
@@ -27,6 +27,8 @@ class hdc1080_util:
             
         try:
             self.hdc1080 = HDC1080(self.i2c)
+            self.enabled = True
+            print("HDC1080 initialised")
             #print(f"Temp: {round(self.hdc1080.read_temperature(celsius=True),1)}")
             #print(f"Humidity: {int(self.hdc1080.read_humidity())}")
 

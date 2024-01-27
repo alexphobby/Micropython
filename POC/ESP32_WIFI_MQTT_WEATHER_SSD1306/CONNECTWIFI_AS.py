@@ -28,9 +28,9 @@ class CONNECTWIFI_AS:
         #self.check_and_connect()
         
         
-    async def check_and_connect(self,callback):
+    async def check_and_connect(self,event_wifi_connected):
         #print("check")
-        self.callback = callback
+        self.event_wifi_connected = event_wifi_connected
         if self.wlan is None:
             print("no wlan")
             
@@ -67,7 +67,7 @@ class CONNECTWIFI_AS:
                         if not self.wlan.isconnected():
                             print("conn unstable")
                         await asyncio.sleep(1)
-                    self.callback()
+                    event_wifi_connected.set()
                     return
                 else:
                     print(f"wlan status = {self.wlan.status()}")
