@@ -4,14 +4,17 @@ import gc
 import time
 class WEATHER:
     weather = []
-    def __init__(self,wlan):
-        self.wlan = wlan
+    last_updated_minute = 0
+    def __init__(self,event_wifi_connected,event_weather_updated):
+        self.event_wifi_connected = event_wifi_connected
+        self.event_weather_updated = event_weather_updated
         self._run = asyncio.create_task(self.update_weather())
     
     async def update_weather(self):
         while True:
-            print("update weather if wifi connected")
-            if(self.wlan.isconnected()):
+            #print("update weather if wifi connected")
+            await self.event_wifi_connected.wait()
+            if abs(self.last_updated_minute - time.localtime()[4]) > 10:
                 hour = 0
                 try:
                     gc.collect()
@@ -22,6 +25,9 @@ class WEATHER:
                         if self.weather["hourly"]["precipitation"][hour] > 0.5:
                             print(f"Precipitation at {hour}:00")
                             continue
+                    print("Weather updated")
+                    self.last_updated_minute = time.localtime()[4]
+                    self.event_weather_updated.set()
                                 
                 except Exception as ex:
                     print(f"Weather Exception {ex}")
@@ -29,6 +35,7 @@ class WEATHER:
                 await asyncio.sleep(30) #30*60)
             else:
                 print("No weather yet, no wlan")
+                event_weather_updated.clear()
                 await asyncio.sleep(5)
 
             

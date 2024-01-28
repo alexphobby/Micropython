@@ -15,7 +15,8 @@ class CONNECTWIFI_AS:
     
     #wlan = ""
     i=0
-    def __init__(self):
+    def __init__(self,event_wifi_connected):
+        self.event_wifi_connected = event_wifi_connected
         """Initialize wifi connection and try all hotspots with a password
             It needs the secrets.py file with PASSWORD = 'pass'
         """
@@ -28,18 +29,19 @@ class CONNECTWIFI_AS:
         #self.check_and_connect()
         
         
-    async def check_and_connect(self,event_wifi_connected):
+    async def check_and_connect(self):
         #print("check")
-        self.event_wifi_connected = event_wifi_connected
         if self.wlan is None:
             print("no wlan")
             
-        if self.wlan.isconnected() == False:
-            print("Need to connect")
-            await self.connect()
+        if self.wlan.isconnected() == True and self.event_wifi_connected.state:
+            self.event_wifi_connected.set()
             
         else:
-            print("Is Connected")
+            print("Need to connect")
+            self.event_wifi_connected.clear()
+            await self.connect()
+        
     
     def is_connected(self):
         
@@ -59,15 +61,15 @@ class CONNECTWIFI_AS:
                 print(f"wlan status = {self.wlan.status()}")
                 while self.wlan.status() in [1,1001,202,201]: #STAT_CONNECTING
                     print(f"Connecting, status: {self.wlan.status()}")
-                    await asyncio.sleep(10)
+                    await asyncio.sleep(4)
                     
                 if self.wlan.isconnected():
                     print("Connected!")
-                    for _ in range(5):
+                    for _ in range(3):
                         if not self.wlan.isconnected():
                             print("conn unstable")
-                        await asyncio.sleep(1)
-                    event_wifi_connected.set()
+                        await asyncio.sleep(0.5)
+                    self.event_wifi_connected.set()
                     return
                 else:
                     print(f"wlan status = {self.wlan.status()}")

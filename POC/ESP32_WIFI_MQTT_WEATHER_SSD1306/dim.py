@@ -61,7 +61,7 @@ class Dim:
         #self.ch1Enabled = True
         if not self.ch1Enabled:
             return
-        print(f"req: {reqIndex1}")
+        #print(f"req: {reqIndex1}")
         if reqIndex1 == 0:
             print(f"Channel 1 off")
             self.reqIndex1 = 0
@@ -186,9 +186,7 @@ class Dim:
         except:
             print(f"Error dimming to level: {self.index1} or {self.index2}")
     def getPercent(self):
-        percent = int(float(self.reqIndex1)/self.max1*100)
-        print(f"Percent: {percent}")
-        return percent
+        return round(float(self.reqIndex1)/self.max1)
     
     #def __doc__(self):
         
