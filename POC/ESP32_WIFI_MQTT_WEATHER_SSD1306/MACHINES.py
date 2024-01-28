@@ -77,6 +77,7 @@ class MACHINES:
             
             self.device = "not defined"
             self.name = "not defined"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
