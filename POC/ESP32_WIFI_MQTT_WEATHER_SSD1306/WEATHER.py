@@ -4,7 +4,7 @@ import gc
 import time
 class WEATHER:
     weather = []
-    last_updated_minute = 0
+    last_updated_minute = -100
     def __init__(self,event_wifi_connected,event_weather_updated):
         self.event_wifi_connected = event_wifi_connected
         self.event_weather_updated = event_weather_updated
@@ -34,8 +34,8 @@ class WEATHER:
                 #print("await to retrive weather")
                 await asyncio.sleep(30) #30*60)
             else:
-                print("No weather yet, no wlan")
-                event_weather_updated.clear()
+                #print("Time wait")
+                self.event_weather_updated.clear()
                 await asyncio.sleep(5)
 
             
