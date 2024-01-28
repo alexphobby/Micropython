@@ -179,7 +179,7 @@ async def heartbeat_oled(wifi):
     print("heartbeat_oled")
     print(ir)
     s = True
-    last_minute = -1 #rtc.datetime()[5]
+    last_minute = -100 #rtc.datetime()[5]
     
     while True:
         
@@ -191,7 +191,7 @@ async def heartbeat_oled(wifi):
             oled.show()
             await asyncio.sleep_ms(100)
             #last_minute = rtc.datetime()[6]
-        elif event_weather_updated.state:
+        elif abs(rtc.datetime()[5] - last_minute) > 5 and event_weather_updated.state:
             print(f"update temp: {last_minute} != {rtc.datetime()[5]}")
             oled.fill(0)
             oled_write.set_textpos(oled,0,0)
