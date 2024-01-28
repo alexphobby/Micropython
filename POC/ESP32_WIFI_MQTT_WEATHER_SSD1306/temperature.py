@@ -1,5 +1,5 @@
 import gc
-gc.enable()
+#gc.enable()
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 from i2c_init import *
 from machine import Pin
@@ -21,11 +21,12 @@ event_wifi_connected = Event()
 event_mq_connected = Event()
 event_weather_updated = Event()
 
-ntp = NTP(event_wifi_connected)
 my_machine = MACHINES()
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 from CONNECTWIFI_AS import *
-wifi = CONNECTWIFI_AS(event_wifi_connected)
+wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
+ntp = NTP(wifi.wlan,event_wifi_connected)
+
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 weather = WEATHER(event_wifi_connected,event_weather_updated)
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
@@ -220,30 +221,46 @@ sender_count = 0
 async def heartbeat(client,event_wifi_connected,event_mq_connected,time=1):
     while True:
         await event_wifi_connected.wait()
+        await event_mq_connected.wait()
         try:
-            client.ping()
+            #print("MQ heartbeat try ping")
+            #client.ping()
+            client.check_msg()
+            #client.publish(my_machine.topic_send, f'jsonDiscovery:test')
+            #print("MQ ping ok")
         except Exception as ex:
             print("MQ Error on ping, connecting..")
-            event_mq_connected.set()
-            asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
-        await event_mq_connected.wait()
-        client.check_msg()
+            event_mq_connected.clear()
+#            asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
+#        await event_mq_connected.wait()
+        
         await asyncio.sleep(time)
 
 
 async def wifi_connection(wifi,event_wifi_connected):
     while True:
-        #print("called wifi connect")
         await wifi.check_and_connect()
         await asyncio.sleep(5)
 
+async def wifi_connection_check(wifi,event_wifi_connected):
+    while True:
+        print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+        #gc.collect()
+        if not event_mq_connected.state:
+            await mq_connection(wifi,event_wifi_connected,event_mq_connected)
+        #print(wifi.is_connected())
+        await asyncio.sleep(9)
+
+
 async def mq_connection(wifi,event_wifi_connected,event_mq_connected):
     if True: #while True:
+        print("MQ connection - wait for wifi")
         await event_wifi_connected.wait()
         if wifi.is_connected():
+            event_wifi_connected.set()
             try:
                 print("MQ connection - connect")
-                gc.collect()
+                #gc.collect()
                 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
                 client.connect()
                 client.subscribe(topic = my_machine.topic_receive)
@@ -264,15 +281,18 @@ async def mq_connection(wifi,event_wifi_connected,event_mq_connected):
 async def main():
     
     t_wifi_connection = asyncio.create_task(wifi_connection(wifi,event_wifi_connected))
-    t_mq_connection = asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
+    #t_mq_connection = asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected)) #send discovery on interval#
     t_oled_update = asyncio.create_task(heartbeat_oled(wifi))
     t_ntp_update = asyncio.create_task(ntp.update_ntp())
     thb = asyncio.create_task(heartbeat(client,event_wifi_connected,event_mq_connected,0.2))
+    
+    t_check_wifi = asyncio.create_task(wifi_connection_check(wifi,event_wifi_connected))
+    
     while True:
         try:
             await asyncio.sleep(5)
-            gc.collect()
+            #gc.collect()
             #await mqtt_send_temp(client,True)
 
             if t_ntp_update.done():
@@ -323,15 +343,15 @@ async def main():
         #loop.run_forever()
     #asyncio.run(heartbeat_oled(client))
        
-if True: #try:
+try:
     print("Async call main")
     asyncio.run(main())
     #loop = asyncio.get_event_loop()
     #loop.run_forever()
     #asyncio.run(heartbeat_oled(client))
-#except Exception as ex:
+except Exception as ex:
     print(f"Catch: {ex}")
-#finally:
+finally:
     print(f"finally: ")
     asyncio.new_event_loop()
 

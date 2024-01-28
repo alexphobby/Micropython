@@ -31,7 +31,7 @@ class bmp280_util:
     
     def humidity(self):
         try:
-            humidity = self.bmp280.read_compensated_data()[2]
+            humidity = int(self.bmp280.read_compensated_data()[2])
         except:
             humidity=0
             

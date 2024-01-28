@@ -11,8 +11,8 @@ class NTP:
     
     last_update = 0
     rtc = ""
-    def __init__(self,event_wifi_connected):
-        
+    def __init__(self,wlan,event_wifi_connected):
+        self.wlan = wlan
         result = False
         self.event_wifi_connected = event_wifi_connected
         self.rtc = RTC()
@@ -29,8 +29,10 @@ class NTP:
     async def update_ntp(self):
         
             while True:
+                
                 await self.event_wifi_connected.wait()
-                if (self.last_update == 0 or self.last_update != self.rtc.datetime()[2]):
+                print("NTP wifi event ok")
+                if self.wlan.isconnected() and (self.last_update == 0 or self.last_update != self.rtc.datetime()[2]):
                     print("Get ntp time")
                     err=True
                     retry_count = 50
@@ -54,7 +56,7 @@ class NTP:
                 else:
                     pass
                 
-                await asyncio.sleep(5)
+                await asyncio.sleep(30)
                         #pass
                        #print(f"last update: {self.last_update}; RTC: {self.rtc.datetime()[2]}") 
                     

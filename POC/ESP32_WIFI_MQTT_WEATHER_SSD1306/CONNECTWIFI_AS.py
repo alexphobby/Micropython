@@ -15,22 +15,25 @@ class CONNECTWIFI_AS:
     
     #wlan = ""
     i=0
-    def __init__(self,event_wifi_connected):
+    def __init__(self,event_wifi_connected,hostname="esp-default"):
         self.event_wifi_connected = event_wifi_connected
         """Initialize wifi connection and try all hotspots with a password
             It needs the secrets.py file with PASSWORD = 'pass'
         """
         print("Init wlan")
         self.wlan = network.WLAN(network.STA_IF)
+        
+        self.wlan.active(False)
         self.wlan.active(True)
-        self.wlan.config(pm=self.wlan.PM_POWERSAVE) #PM_NONE|PM_PERFORMANCE|PM_POWERSAVE
+        self.wlan.config(dhcp_hostname=hostname)
+        #self.wlan.config(pm=self.wlan.PM_POWERSAVE) #PM_NONE|PM_PERFORMANCE|PM_POWERSAVE
         
         print("call async check_and_connect")
         #self.check_and_connect()
         
         
     async def check_and_connect(self):
-        #print("check")
+        #print(f"check and connect event: {self.event_wifi_connected.state}")
         if self.wlan is None:
             print("no wlan")
             
@@ -52,6 +55,7 @@ class CONNECTWIFI_AS:
         counter = 50
         
         while not self.wlan.isconnected() and counter > 0 : #and err:
+            
             counter -= 1
             print(f"Wlan not connected, wlan status = {self.wlan.status()}")
             #self.wlan.scan()
@@ -60,16 +64,18 @@ class CONNECTWIFI_AS:
                 await asyncio.sleep(2)
                 print(f"wlan status = {self.wlan.status()}")
                 while self.wlan.status() in [1,1001,202,201]: #STAT_CONNECTING
-                    print(f"Connecting, status: {self.wlan.status()}")
+                    print(f"Connecting, status: {self.wlan.status()}, is connected: {self.wlan.isconnected()}")
                     await asyncio.sleep(4)
                     
                 if self.wlan.isconnected():
-                    print("Connected!")
-                    for _ in range(3):
+                    print("Connected, check for connection")
+                    for _ in range(10):
                         if not self.wlan.isconnected():
                             print("conn unstable")
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(1)
+                    
                     self.event_wifi_connected.set()
+                    print("Connection stable")
                     return
                 else:
                     print(f"wlan status = {self.wlan.status()}")

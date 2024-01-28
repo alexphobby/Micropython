@@ -14,6 +14,7 @@ class WEATHER:
         while True:
             #print("update weather if wifi connected")
             await self.event_wifi_connected.wait()
+            await asyncio.sleep(5)
             if abs(self.last_updated_minute - time.localtime()[4]) > 10:
                 hour = 0
                 try:
