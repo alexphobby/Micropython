@@ -24,11 +24,11 @@ class bh1750_util:
     def light(self):
         try:
             _light = self.bh1750.luminance(self.bh1750.ONCE_HIRES_2)
-            if _light > 1:
-                return round(_light)
-            else:
+            if _light < 1:
                 return round(self.bh1750.luminance(self.bh1750.ONCE_HIRES_2),1)
-
+            else:
+                return min(99,round(_light))
+            
         except:
             _light = -1
             

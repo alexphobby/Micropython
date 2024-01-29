@@ -28,17 +28,17 @@ if True: #try:
 #collect()
 #except:
 #    print("no i2c")
-sensor_temp = ""
+temp_sensor = None
 if "BMP280" in found_devices:
     #print("BMP280")
     from bmp280_util import bmp280_util
-    sensor_temp = bmp280_util(i2c)
+    temp_sensor = bmp280_util(i2c)
 elif "HDC1080" in found_devices:
     #print("HDC1080")
     from hdc1080_util import hdc1080_util
-    sensor_temp = hdc1080_util(i2c)
-oled = ""
-oled_write = ""
+    temp_sensor = hdc1080_util(i2c)
+oled = None
+oled_write = None
 if "SSD1306" in found_devices:
     #print("SH1106")
     from sh1106 import SH1106_I2C
@@ -49,6 +49,8 @@ if "SSD1306" in found_devices:
     oled_write.set_textpos(oled,0,0)
     oled_write.printstring(f"Loading...")
     oled.show()
-
-    
-    print("done i2c init")
+light_sensor = None
+if "BH1750" in found_devices:
+    from bh1750_util import *
+    light_sensor = bh1750_util(i2c)
+print("done i2c init")
