@@ -56,7 +56,7 @@ class NTP:
                 else:
                     pass
                 
-                await asyncio.sleep(30)
+                await asyncio.sleep(600)
                         #pass
                        #print(f"last update: {self.last_update}; RTC: {self.rtc.datetime()[2]}") 
                     

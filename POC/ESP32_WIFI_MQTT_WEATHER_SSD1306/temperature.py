@@ -1,39 +1,46 @@
+
+
 import gc
 #gc.enable()
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 from i2c_init import *
-from machine import Pin
 from my_remotes import *
+import time
 import asyncio
 from WEATHER import *
 from NTP import *
-
 from dim import Dim
 from brightness_map_1024 import brightness_map_1024
-
 from machine import lightsleep
-
 from MACHINES import *
-from machine import Signal,PWM,Pin
+from machine import Signal,PWM,Pin,sleep
 from asyncio import Event
 event_wifi_connected = Event()
 event_mq_connected = Event()
 event_weather_updated = Event()
-
+event_sleep_ready = Event()
+event_request_ready = Event()
+event_request_ready.set()
 my_machine = MACHINES()
+
+
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 from CONNECTWIFI_AS import *
 wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
-ntp = NTP(wifi.wlan,event_wifi_connected)
+ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready)
 
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
-weather = WEATHER(event_wifi_connected,event_weather_updated)
+weather = WEATHER(event_wifi_connected,event_weather_updated,event_request_ready)
 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
-#led = Signal(Pin(8,Pin.OUT,value = 1),invert=True)
+
+led_value = True
+led = Signal(Pin(8,Pin.OUT,value = 1),invert=True)
 #led.on()
 #led = PWM(Pin(8,Pin.OUT,value=0))
 dimmer = Dim(10,fade_time_ms = 60)
 
+from MAP import *
+map_ambient_light_oled = MAP(0,149,5,128)
 
 
 def mqttClient(ssl_enabled = False,name="pico"):
@@ -62,8 +69,12 @@ def dim(strValue):
 
 
 def mqtt_receive_cb(topic, msg):
+    global event_sleep_ready
     print(f'Received {(topic, msg)}')
     msg = msg.decode()
+    oled_write.set_textpos(oled,0,0)
+    oled_write.printstring(f'{msg}')
+    oled.show()
     if msg == "discovery":
         print("Send discovery result")
         task = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True))
@@ -81,6 +92,10 @@ def mqtt_receive_cb(topic, msg):
                 
         except Exception as ex:
             print(f"cannot unpack: {msg}, {ex}")
+    
+    print("can sleep")
+    await asyncio.sleep(1)
+    event_sleep_ready.set()
 
 
 from umqtt.robust import MQTTClient
@@ -95,19 +110,21 @@ client.set_callback(mqtt_receive_cb)
 #oled_write.printstring(f"Loading...")
 #oled.show()
 sender_count = 0
-async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
+async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,event_request_ready,on_demand = False):
     global sender_count
     if on_demand:
         await event_wifi_connected.wait()
         await event_mq_connected.wait()
+        await event_request_ready.wait()
         sender_count +=1
         try:
             print(f"Send on demand message on {my_machine.topic_send}")
-            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":sender_count}
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":sender_count}
             client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0)
             _output = None
-            await asyncio.sleep(5)
-            lightsleep(10000)
+            event_request_ready.set()
+            #await asyncio.sleep(5)
+            #lightsleep(10000)
             return
         except Exception as ex:
             print(f"mqtt_send error: {ex}")
@@ -117,13 +134,14 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         while False: #Do not run
             await event_wifi_connected.wait()
             await event_mq_connected.wait()
-
+            await event_request_ready.wait()
             try:
                 sender_count +=1
                 print(f"Send mqtt message on {my_machine.topic_send}")
                 _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":sender_count}
                 client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0)
                 _output = None
+                event_request_ready.set()
             except Exception as ex:
                 print(f"mqtt_send error: {ex}")
             await asyncio.sleep(60)
@@ -132,7 +150,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         
 
 async def heartbeat_oled(wifi):
-    global set_temp,weather
+    global set_temp,weather,led,led_value
     print("heartbeat_oled")
     last_minute = -1 #rtc.datetime()[5]
     
@@ -141,6 +159,8 @@ async def heartbeat_oled(wifi):
         
         print("oled_update")
         _ambient_light = light_sensor.light()
+        oled.hline(0,62,128,0)
+        oled.hline(0,62,int(map_ambient_light_oled.map_value(_ambient_light)),1)
         if _ambient_light <10:
             oled.contrast(2)
         elif _ambient_light <30:
@@ -149,39 +169,33 @@ async def heartbeat_oled(wifi):
             oled.contrast(30)
         else:
             oled.contrast(150)
-        oled_write.set_textpos(oled,0,0)
-        oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d} {_ambient_light} Lux    ')
+        #oled_write.set_textpos(oled,0,0)
+        #oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d} - {rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}  ') #minut:{rtc.datetime()[6]:02d} {_ambient_light} L
         if event_weather_updated.state and weather.temperature() > -100:
-            oled_write.set_textpos(oled,40,0)
-            oled_write.printstring(f'Out: {weather.temperature()} C  ')
+            pass
+        #    oled_write.set_textpos(oled,40,0)
+        #    oled_write.printstring(f'Out: {weather.temperature()} C  ')
             
-        oled.show()
+        #oled.show()
         
         if last_minute != rtc.datetime()[5]:
-            print(f"update temp: {last_minute} != {rtc.datetime()[5]}, light: {light_sensor.light()}, weather updated: {event_weather_updated.state}")
+            print("diff")
             #oled.fill(0)
             #oled_write.set_textpos(oled,0,0)
             #oled_write.printstring(f'{rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}/{rtc.datetime()[0]} - {rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}')
             #oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}')
-            oled_write.set_textpos(oled,20,0)
-            oled_write.printstring(f'In: {temp_sensor.temperature()} C')
+        #    oled_write.set_textpos(oled,20,0)
+        #    oled_write.printstring(f'In: {temp_sensor.temperature()} C')
             
             #oled_write.set_textpos(oled,20,60)
-            oled_write.printstring(f'  {temp_sensor.humidity()} %   ')
+        #    oled_write.printstring(f'  {temp_sensor.humidity()} %   ')
             
                 #oled.drawCircle(50, 50, 10, WHITE)
-            oled.show()
-        last_minute = rtc.datetime()[5]
+        #    oled.show()
+            last_minute = rtc.datetime()[5]
             #lightsleep(20000)
-        #await asyncio.sleep(30)
-        if event_weather_updated.state and event_mq_connected.state:
-            #client.check_msg()
-            #print("sleep")
-            #await asyncio.sleep(0.2)
-            #lightsleep(2000)
-            await asyncio.sleep(5)
-        else:
-            await asyncio.sleep(5)
+            #await asyncio.sleep(30)
+        await asyncio.sleep(5)
             
 
 
@@ -189,22 +203,33 @@ t = None
 tasks = []
 sender_count = 0
 
-async def heartbeat(client,event_wifi_connected,event_mq_connected,time=1):
+async def heartbeat(client,event_wifi_connected,event_mq_connected,event_request_ready,time=1):
     while True:
         await event_wifi_connected.wait()
         await event_mq_connected.wait()
+        await event_request_ready.wait()
+ 
+        led.value(True)
+        await asyncio.sleep(1)
+        led.value(False)
+
         try:
-            #print("MQ heartbeat try ping")
             #client.ping()
+            
             client.check_msg()
-            #client.publish(my_machine.topic_send, f'jsonDiscovery:test')
-            #print("MQ ping ok")
+            
+            #if _msg is None:
+            #    event_sleep_ready.set()
+            #else:
+            
         except Exception as ex:
-            print("MQ Error on ping, connecting..")
+            print(f"MQ Error on ping, connecting..{ex}")
+            oled_write.set_textpos(oled,20,0)
+            oled_write.printstring(f'E:{ex}')
+            oled.show()
             event_mq_connected.clear()
-#            asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
-#        await event_mq_connected.wait()
-        
+
+        event_request_ready.set()
         await asyncio.sleep(time)
 
 
@@ -213,32 +238,37 @@ async def wifi_connection(wifi,event_wifi_connected):
         await wifi.check_and_connect()
         await asyncio.sleep(30)
 
-async def wifi_connection_check(wifi,client,event_wifi_connected):
+async def wifi_connection_check(wifi,client,event_wifi_connected,event_request_ready):
     while True:
         print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
         #gc.collect()
         if not event_mq_connected.state:
-            await mq_connection(wifi,client,event_wifi_connected,event_mq_connected)
+            await mq_connection(wifi,client,event_wifi_connected,event_mq_connected,event_request_ready)
         #print(wifi.is_connected())
         await asyncio.sleep(9)
 
 
-async def mq_connection(wifi,client,event_wifi_connected,event_mq_connected):
+async def mq_connection(wifi,client,event_wifi_connected,event_mq_connected,event_request_ready):
     if True: #while True:
         #print("MQ connection - wait for wifi")
         await event_wifi_connected.wait()
+        
         if wifi.is_connected():
             event_wifi_connected.set()
             try:
+                await event_request_ready.wait()
+                
                 print("MQ connection - connect")
                 #gc.collect()
                 print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
                 #await asyncio.sleep(5)
+                event_request_ready.clear()
                 client.connect()
                 client.subscribe(topic = my_machine.topic_receive)
                 client.subscribe(topic = b"to/*")
                 print("MQ connected and subscribed")
                 event_mq_connected.set()
+                event_request_ready.set()
                 await asyncio.sleep(60)
             except Exception as ex:
                 print(f"Err connecting to MQ, {ex}")
@@ -248,25 +278,45 @@ async def mq_connection(wifi,client,event_wifi_connected,event_mq_connected):
             event_mq_connected.clear()
         await asyncio.sleep(10)
 
+async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready):
+    global led,led_value
+    while True:
+        await event_wifi_connected.wait()
+        await event_mq_connected.wait()
+        await event_sleep_ready.wait()
+        
+        #lightsleep(3000)
+        time.sleep(5)
+        event_sleep_ready.clear()
+        
 
 
 async def main():
+    t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
+    
     t_wifi_connection = asyncio.create_task(wifi_connection(wifi,event_wifi_connected))
+    
     await asyncio.sleep(15)
     t_oled_update = asyncio.create_task(heartbeat_oled(wifi))
     #t_mq_connection = asyncio.create_task(mq_connection(wifi,event_wifi_connected,event_mq_connected))
-    t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = True)) #send discovery on interval#
+    #t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = True)) #send discovery on interval#
     
     t_ntp_update = asyncio.create_task(ntp.update_ntp())
-    thb = asyncio.create_task(heartbeat(client,event_wifi_connected,event_mq_connected,2))
+    thb = asyncio.create_task(heartbeat(client,event_wifi_connected,event_mq_connected,event_request_ready,1))
     
-    t_check_wifi = asyncio.create_task(wifi_connection_check(wifi,client,event_wifi_connected))
+    t_check_wifi = asyncio.create_task(wifi_connection_check(wifi,client,event_wifi_connected,event_request_ready))
     
     while True:
         try:
             await asyncio.sleep(5)
             #gc.collect()
             #await mqtt_send_temp(client,True)
+
+            if t_program_sleep.done():
+                print("t_sleep_connection is done")
+                t_sleep=None
+                #gc.collect()
+                t_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
 
             if t_ntp_update.done():
                 print("t_wifi_connection is done")
@@ -292,7 +342,7 @@ async def main():
                 print("HB is done")
                 thb=None
                 gc.collect()
-                thb = asyncio.create_task(heartbeat(client,event_wifi_connected,event_mq_connected,1))
+                thb = asyncio.create_task(heartbeat(client,event_wifi_connected,event_mq_connected,event_request_ready,1))
             
             
             if False: #t_mqtt_discovery.done(): #toled.done():
