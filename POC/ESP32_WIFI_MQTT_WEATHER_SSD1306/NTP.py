@@ -41,7 +41,7 @@ class NTP:
                             ntptime.settime()
                             print(f"NTP OK, Time: {self.rtc.datetime()}") #, current day: {self.rtc.datetime()[2]}")
                             self.last_update = self.rtc.datetime()[2]
-                            asyncio.sleep_ms(100)
+                            await asyncio.sleep_ms(100)
                             await self.update_timezone()
                             err=False
                                 
@@ -50,7 +50,7 @@ class NTP:
                         except Exception as ex:
                             retry_count-=1
                             print(f"err ntp, retry count: {retry_count}, Err: {ex}")
-                            asyncio.sleep(0.6)
+                            await asyncio.sleep(0.6)
                     await asyncio.sleep(50)
                         #await asyncio.sleep_ms(10)
                 else:
@@ -75,12 +75,12 @@ class NTP:
                     if self.UTC_OFFSET != 0 :
                         self.rtc.init((self.rtc.datetime()[0],self.rtc.datetime()[1],self.rtc.datetime()[2],self.rtc.datetime()[3] ,self.rtc.datetime()[4]+ self.UTC_OFFSET,self.rtc.datetime()[5],self.rtc.datetime()[6],self.rtc.datetime()[7]+500000))
                         print(f"After UTC: {self.rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
-                        asyncio.sleep(5)
+                        await asyncio.sleep(0.5)
                     err = False
                 except Exception as ex:
                     retry_count-=1
                     print(f"err getting timezone, err: {ex}")
-                    asyncio.sleep(0.6)
+                    await asyncio.sleep(2)
 
     def ro_time():
         return time.localtime(time.time() + UTC_OFFSET)
