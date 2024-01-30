@@ -34,13 +34,14 @@ class WEATHER:
                                 
                 except Exception as ex:
                     self.event_request_ready.set()
+                    self.event_weather_updated.clear()
                     print(f"Weather Exception {ex}")
                 #print("await to retrive weather")
-                await asyncio.sleep(30) #30*60)
+                await asyncio.sleep(30*60) #30*60)
             else:
                 #print("Time wait")
-                self.event_weather_updated.clear()
-                await asyncio.sleep(5)
+                #self.event_weather_updated.clear()
+                await asyncio.sleep(1)
 
             
             

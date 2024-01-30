@@ -21,8 +21,8 @@ class CONNECTWIFI_AS:
             It needs the secrets.py file with PASSWORD = 'pass'
         """
         print("Init wlan")
+        network.WLAN(network.AP_IF).active(False)
         self.wlan = network.WLAN(network.STA_IF)
-        
         self.wlan.active(False)
         self.wlan.active(True)
         self.wlan.config(dhcp_hostname=hostname)

@@ -30,6 +30,8 @@ class Queue:
         self._jnevt = asyncio.Event()
         self._upd_jnevt(0) #update join event
 
+    def put_simple(self):
+        pass
     def _get(self):
         self._evget.set()  # Schedule all tasks waiting on get
         self._evget.clear()

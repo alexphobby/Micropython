@@ -9,7 +9,7 @@ found_devices = []
 if True: #try:
     if (platform == "esp32"):
         print("ESP32 - I2C on pins: scl=Pin(3),sda=Pin(4)")
-        i2c = I2C(0,scl=Pin(3),sda=Pin(4))
+        i2c = I2C(0,scl=Pin(3),sda=Pin(4),freq=800000)
     else:
         print("non ESP32")
         i2c = I2C(0,scl=Pin(1),sda=Pin(0))
