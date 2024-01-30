@@ -132,44 +132,49 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         
 
 async def heartbeat_oled(wifi):
-    global set_temp,weather,led,led_value
+    global set_temp,weather,led,led_value,event_wifi_connected,event_mq_connected
     print("heartbeat_oled")
     last_minute = -1 #rtc.datetime()[5]
     
     while True:
 
-        _ambient_light = light_sensor.light()
-        if _ambient_light <10:
-            oled.contrast(2)
-        elif _ambient_light <30:
-            oled.contrast(10)
-        elif _ambient_light <50:
-            oled.contrast(30)
-        else:
-            oled.contrast(150)
-        
         if last_minute != rtc.datetime()[5]:
             print("diff")
+            _ambient_light = light_sensor.light()
+            if _ambient_light <10:
+                oled.contrast(2)
+            elif _ambient_light <30:
+                oled.contrast(10)
+            elif _ambient_light <50:
+                oled.contrast(30)
+            else:
+                oled.contrast(150)
             oled.fill(0)
             oled_write.set_textpos(oled,20,0)
             oled_write.printstring(f'In: {temp_sensor.temperature()} C')
             oled_write.printstring(f'  {temp_sensor.humidity()} %   ')
+
+            oled_write.set_textpos(oled,40,91)
+            oled_write.printstring(f'{"W" if event_wifi_connected.state else " "} {"Q" if event_mq_connected.state else " "}')
+        
                 #oled.drawCircle(50, 50, 10, WHITE)
             last_minute = rtc.datetime()[5]
         
         if event_weather_updated.state and weather.temperature() > -100:
             oled_write.set_textpos(oled,40,0)
-            oled_write.printstring(f'Out: {weather.temperature()} C WF:{wifi.is_connected()}      ')
+            oled_write.printstring(f'Out: {weather.temperature()} C ')#9-10chars
+            oled_write.set_textpos(oled,40,91)
+            oled_write.printstring(f'{"W" if event_wifi_connected.state else " "} {"Q" if event_mq_connected.state else " "}')
         
         oled_write.set_textpos(oled,0,0)
-        oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d} - {rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}  ') #minut:{rtc.datetime()[6]:02d} {_ambient_light} L
+        oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d} - {rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}/{rtc.datetime()[0]}') #minut:{rtc.datetime()[6]:02d} {_ambient_light} L
         
         oled.hline(0,62,128,0)
         oled.hline(0,62,int(map_ambient_light_oled.map_value(_ambient_light)),1)
         
         oled.show()
         
-        await asyncio.sleep(2)
+        await asyncio.sleep(10)
             
 
 
@@ -250,6 +255,7 @@ async def wifi_connection(wifi):#One Time
     await wifi.check_and_connect()
 
 async def wifi_connection_check(wifi,client,event_wifi_connected,event_request_ready):
+    global event_mq_connected
     while True:
         #print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
         if wifi.is_connected():
@@ -258,8 +264,9 @@ async def wifi_connection_check(wifi,client,event_wifi_connected,event_request_r
             else:
                 event_wifi_connected.set()
         else:
-            if event_wifi_connected.state:
-                event_wifi_connected.clear()
+            event_mq_connected.clear()
+            event_wifi_connected.clear()
+                
         await asyncio.sleep(5)
 
 async def mq_connection_check(event_wifi_connected,event_mq_connected):
@@ -268,17 +275,17 @@ async def mq_connection_check(event_wifi_connected,event_mq_connected):
         await event_wifi_connected.wait()
         if not event_mq_connected.state:
             print("mq_connection_check mq connected, call connect_mq after delay")
-            await asyncio.sleep(10)
-            await connect_mq(event_wifi_connected,event_mq_connected,event_request_ready)
+            await asyncio.sleep(3)
+            await connect_mq(event_request_ready)
         #print(f"called mq connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
         await asyncio.sleep(10)
 
-async def connect_mq(event_wifi_connected,event_mq_connected,event_request_ready):
+async def connect_mq(event_request_ready):
     print("def connect_mq")
     if True: #while True:
         print("MQ connection - wait for wifi")
-        await event_wifi_connected.wait()
-        print("MQ connection - wifi ok")
+        #await event_wifi_connected.wait()
+        #print("MQ connection - wifi ok")
         try:
             await event_request_ready.wait()
             print("MQ connection - connect")
