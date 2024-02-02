@@ -11,11 +11,12 @@ class NTP:
     
     last_update = 0
     rtc = ""
-    def __init__(self,wlan,event_wifi_connected,event_request_ready):
+    def __init__(self,wlan,event_wifi_connected,event_request_ready,event_ntp_updated):
         self.wlan = wlan
         result = False
         self.event_wifi_connected = event_wifi_connected
         self.event_request_ready = event_request_ready
+        self.event_ntp_updated = event_ntp_updated
         self.rtc = RTC()
         
 
@@ -74,6 +75,7 @@ class NTP:
                     if self.UTC_OFFSET != 0 :
                         self.rtc.init((self.rtc.datetime()[0],self.rtc.datetime()[1],self.rtc.datetime()[2],self.rtc.datetime()[3] ,self.rtc.datetime()[4]+ self.UTC_OFFSET,self.rtc.datetime()[5],self.rtc.datetime()[6],self.rtc.datetime()[7]+500000))
                         print(f"After UTC: {self.rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
+                        self.event_ntp_updated.set()
                         #await asyncio.sleep(0.5)
                     err = False
                 except Exception as ex:

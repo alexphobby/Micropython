@@ -114,6 +114,13 @@ class SH1106(framebuf.FrameBuffer):
             page = y // 8
             self.pages_to_update |= 1 << page
 
+    def printdegrees(self,x,y,color):
+        super().ellipse(x,y,2,2,color)
+        page = y // 8
+        self.pages_to_update |= 1 << page
+
+        
+
     def text(self, text, x, y, color=1):
         super().text(text, x, y, color)
         self.register_updates(y, y+7)

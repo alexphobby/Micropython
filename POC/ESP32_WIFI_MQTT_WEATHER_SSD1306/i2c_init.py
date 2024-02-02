@@ -45,7 +45,7 @@ if "SSD1306" in found_devices:
     from writer import Writer
     import consolas12
     oled = SH1106_I2C(128, 64, i2c,rotate=0) #180
-    oled_write = Writer(oled, consolas12) #,verbose=False)
+    oled_write = Writer(oled, consolas12) #,verbose=False)18 caractere 7 px/char
     oled_write.set_textpos(oled,0,0)
     oled_write.printstring(f"Loading...")
     oled.show()

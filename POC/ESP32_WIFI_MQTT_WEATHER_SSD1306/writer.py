@@ -43,6 +43,8 @@ def _get_id(device):
 class Writer():
 
     state = {}  # Holds a display state for each device
+    #degree_bitmap = bytearray([0x00, 0x0e, 0x11, 0x11, 0x0e, 0x00, 0x00, 0x00])
+    degree_bitmap = bytearray([0x00, 0x0e, 0x11, 0x11, 0x0e, 0x00, 0x00, 0x00])
 
     @staticmethod
     def set_textpos(device, row=None, col=None):
@@ -237,6 +239,12 @@ class Writer():
                 buf[i] = 0xFF & ~ v
         fbc = framebuf.FrameBuffer(buf, self.clip_width, self.char_height, self.map)
         self.device.blit(fbc, s.text_col, s.text_row)
+        s.text_col += self.char_width
+        self.cpos += 1
+
+    def printdegrees(self):
+        s = self._getstate()
+        self.device.printdegrees(s.text_col+4, s.text_row+3,255)
         s.text_col += self.char_width
         self.cpos += 1
 

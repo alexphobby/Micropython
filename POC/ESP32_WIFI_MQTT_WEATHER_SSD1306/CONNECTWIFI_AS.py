@@ -26,7 +26,7 @@ class CONNECTWIFI_AS:
         self.wlan.active(False)
         self.wlan.active(True)
         self.wlan.config(dhcp_hostname=hostname)
-        #self.wlan.config(pm=self.wlan.PM_POWERSAVE) #PM_NONE|PM_PERFORMANCE|PM_POWERSAVE
+        self.wlan.config(pm=self.wlan.PM_POWERSAVE) #PM_NONE|PM_PERFORMANCE|PM_POWERSAVE
         
         print("call async check_and_connect")
         #self.check_and_connect()

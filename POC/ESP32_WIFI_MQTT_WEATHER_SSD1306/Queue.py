@@ -26,22 +26,23 @@ class Queue:
         self._evput = asyncio.Event()  # Triggered by put, tested by get
         self._evget = asyncio.Event()  # Triggered by get, tested by put
 
-        self._jncnt = 0
-        self._jnevt = asyncio.Event()
-        self._upd_jnevt(0) #update join event
-
     def put_simple(self):
         pass
     def _get(self):
-        self._evget.set()  # Schedule all tasks waiting on get
-        self._evget.clear()
+        #self._evget.set()  # Schedule all tasks waiting on get
+        #self._evget.clear()
+        print("_get return")
         return self._queue.pop(0)
 
     async def get(self):  #  Usage: item = await queue.get()
         while self.empty():  # May be multiple tasks waiting on get()
+            print("q empty")
             # Queue is empty, suspend task until a put occurs
             # 1st of N tasks gets, the rest loop again
             await self._evput.wait()
+            print("q iten, _get")
+        
+            
         return self._get()
 
     def get_nowait(self):  # Remove and return an item from the queue.
@@ -51,17 +52,21 @@ class Queue:
         return self._get()
 
     def _put(self, val):
-        self._upd_jnevt(1) # update join event
-        self._evput.set()  # Schedule tasks waiting on put
-        self._evput.clear()
-        self._queue.append(val)
+        self._queue.append(str(val,"UTF-8"))
+        #self._evput.clear()
+        print(f"appended, qsize: {self.qsize()}")
+        self._evput.set()
+        self._evput.clear()  # Schedule tasks waiting on put
 
-    async def put(self, val):  # Usage: await queue.put(item)
+    async def aput(self, val):  # Usage: await queue.put(item)
         while self.full():
             # Queue full
+            print("Queue full")
             await self._evget.wait()
             # Task(s) waiting to get from queue, schedule first Task
+        print("aput")
         self._put(val)
+        
 
     def put_nowait(self, val):  # Put an item into the queue without blocking.
         if self.full():
