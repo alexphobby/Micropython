@@ -39,7 +39,10 @@ elif "HDC1080" in found_devices:
     temp_sensor = hdc1080_util(i2c)
 oled = None
 oled_write = None
-if "SSD1306" in found_devices:
+
+oled_enabled = False
+
+if oled_enabled is True and "SSD1306" in found_devices:
     #print("SH1106")
     from sh1106 import SH1106_I2C
     from writer import Writer

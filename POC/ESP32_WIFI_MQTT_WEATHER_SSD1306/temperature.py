@@ -3,6 +3,8 @@
 import gc
 #gc.enable()
 from i2c_init import *
+#oled.poweroff()
+
 from my_remotes import *
 import time
 import asyncio
@@ -150,9 +152,13 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
 async def heartbeat_oled(wifi):
     global set_temp,weather,led,led_value,event_wifi_connected,event_mq_connected
     print("heartbeat_oled")
+    
+        
     last_minute = -1 #rtc.datetime()[5]
     
     while True:
+        if oled is None:
+            await asyncio.sleep(60)
 
         if last_minute != rtc.datetime()[5]:
             print("diff")
@@ -335,12 +341,13 @@ async def connect_mq(event_request_ready):
         event_sleep_ready.set()
 
 async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready):
-    global led,led_value
+    global led,led_value,event_weather_updated
     while True:
         await event_wifi_connected.wait()
         await event_mq_connected.wait()
         await event_sleep_ready.wait()
-        #await asyncio.sleep(1)
+        if not event_weather_updated.state:
+            await asyncio.sleep(3)
         lightsleep(15000)
         #time.sleep(5)
         event_sleep_ready.clear()

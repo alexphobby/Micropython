@@ -67,6 +67,7 @@ class NTP:
             retry_count = 50
             while err and retry_count > 0:
                 try:
+                    print("Get timezone")
                     self.event_request_ready.clear()
                     #res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()
                     self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
