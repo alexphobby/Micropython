@@ -109,6 +109,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             print("Cannot send, not connected to mq")
             return
         try:
+            
             print(f"Send on demand message on {my_machine.topic_send}")
             _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}',"autobrightness":0,"count":0}
             event_request_ready.clear()
@@ -159,27 +160,18 @@ async def heartbeat_oled(wifi):
     while True:
         if oled is None:
             await asyncio.sleep(60)
+        oled_write.set_textpos(oled,40,114)
+        oled_write.printstring(f'{"W" if event_wifi_connected.state else " "}{"Q" if event_mq_connected.state else " "}')
 
         if last_minute != rtc.datetime()[5]:
             print("diff")
-            _ambient_light = light_sensor.light()
-            if _ambient_light <10:
-                oled.contrast(2)
-            elif _ambient_light <30:
-                oled.contrast(10)
-            elif _ambient_light <50:
-                oled.contrast(30)
-            else:
-                oled.contrast(150)
+            oled.contrast(2)
+
             oled.fill(0)
             oled_write.set_textpos(oled,20,0)
             oled_write.printstring(f'In: {temp_sensor.temperature()}')
             oled_write.printdegrees()
             oled_write.printstring(f'  {temp_sensor.humidity()} %   ')
-
-            oled_write.set_textpos(oled,40,91)
-            oled_write.printstring(f'{"W" if event_wifi_connected.state else " "} {"Q" if event_mq_connected.state else " "}')
-        
                 #oled.drawCircle(50, 50, 10, WHITE)
             last_minute = rtc.datetime()[5]
         
@@ -187,17 +179,17 @@ async def heartbeat_oled(wifi):
             oled_write.set_textpos(oled,40,0)
             oled_write.printstring(f'Out: {weather.temperature()}/{weather.temperature_feel()}')
             oled_write.printdegrees()
-            oled_write.printstring(f',R:{weather.precipitation() or "-  "}')#9-10chars
-            oled_write.set_textpos(oled,40,114)
-            oled_write.printstring(f'{"W" if event_wifi_connected.state else " "}{"Q" if event_mq_connected.state else " "}')
+            oled_write.printstring(f',R:{weather.precipitation() or "- "}')#9-10chars
+            
         
         if event_ntp_updated.state:
             oled_write.set_textpos(oled,0,0)
             oled_write.printstring(f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d} - {rtc.datetime()[2]:02d}/{rtc.datetime()[1]:02d}/{rtc.datetime()[0]}') #minut:{rtc.datetime()[6]:02d} {_ambient_light} L
-            
-        oled.hline(0,62,128,0)
-        oled.hline(0,62,int(map_ambient_light_oled.map_value(_ambient_light)),1)
         
+        if light_sensor.enabled:
+            oled.hline(0,62,128,0)
+            oled.hline(0,62,int(map_ambient_light_oled.map_value(_ambient_light)),1)
+            
         oled.show()
         
         await asyncio.sleep(5)
@@ -348,12 +340,25 @@ async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_read
         await event_sleep_ready.wait()
         if not event_weather_updated.state:
             await asyncio.sleep(3)
-        lightsleep(15000)
+        #lightsleep(10000)
+        print("sleep")
         #time.sleep(5)
         event_sleep_ready.clear()
-        await asyncio.sleep(1)
+        await asyncio.sleep(5)
         
-
+async def update_contrast():
+    while True:
+        if light_sensor.enabled:
+            _ambient_light = light_sensor.light()
+            if _ambient_light <10:
+                oled.contrast(2)
+            elif _ambient_light <30:
+                oled.contrast(10)
+            elif _ambient_light <50:
+                oled.contrast(30)
+            else:
+                oled.contrast(150)
+        await asyncio.sleep(60)
 
 async def main():
     await wifi.check_and_connect()
@@ -366,7 +371,8 @@ async def main():
     t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
     
     t_oled_update = asyncio.create_task(heartbeat_oled(wifi))
-    t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = True)) #send discovery on interval#
+    t_update_contrast = asyncio.create_task(update_contrast())
+    t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False)) #send discovery on interval#
     t_mq_check_messages = asyncio.create_task(mq_check_messages(client,2))
     
     
@@ -375,6 +381,7 @@ async def main():
             await asyncio.sleep(5)
             #gc.collect()
             #await mqtt_send_temp(client,True)
+            
             #continue
         
             if t_program_sleep.done():
@@ -414,10 +421,10 @@ async def main():
                 print("t_mqtt_discovery is done")
                 t_mqtt_discovery=None
                 gc.collect()
-                t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True))
+                t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,False))
             
             if t_oled_update.done():
-                print("HB is done")
+                print("oled refresh is done")
                 t_oled_update=None
                 gc.collect()
                 t_oled_update = asyncio.create_task(heartbeat_oled(wifi,1))

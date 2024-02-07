@@ -10,10 +10,19 @@ last_flush = 0
 
 print(f"Range threshold: {threshold} cm")
 flush_pin = Signal(Pin(22,Pin.OUT,value = 0), invert=True) # Pin(22, Pin.OUT,value=0) #
+event_flush = asyncio.Event()
+event_close = asyncio.Event()
+
+
 #led = Signal(Pin(9,Pin.OUT,value = 0), invert=False)
 led = Pin(21, Pin.OUT,value=0)
 
-switch = Pin(20,Pin.IN,Pin.PULL_DOWN)
+switch = Pin(20,Pin.IN)
+def button_pressed(pin):
+    print("button")
+    event_flush.set()
+    
+switch.irq(handler=button_pressed,trigger=Pin.IRQ_RISING)
 
 timer1 = Timer()
 timer2 = Timer()
@@ -31,29 +40,42 @@ budget = tof.measurement_timing_budget_us
 print("Budget was:", budget)
 tof.set_measurement_timing_budget(400000)
 
+
 # Sets the VCSEL (vertical cavity surface emitting laser) pulse period for the 
 # given period type (VL53L0X::VcselPeriodPreRange or VL53L0X::VcselPeriodFinalRange) 
 # to the given value (in PCLKs). Longer periods increase the potential range of the sensor. 
 # Valid values are (even numbers only):
 
 # tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
+#tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
 
 # tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
+#tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
+async def flush(duration = 5000,on_demand = False ):
+    if on_demand:
+        print("Flush on demand")
+        flush_pin.on()
+        await asyncio.sleep_ms(duration)
+        flush_pin.off()
+        event_flush.clear()
+        last_flush = time.ticks_ms()
+        last_state=0
+        led.off()
+        
+    else:        
+        while True:
+            await event_flush.wait()
+            led.on()
+            print("Flush after wait event")
+            flush_pin.on()
+            await asyncio.sleep_ms(duration)
+            flush_pin.off()
+            led.off()
+            event_flush.clear()
+            last_flush = time.ticks_ms()
+            last_state=0
 
-async def flush():
-    global last_state,last_flush
-    print("Flush!")
-    
-    flush_pin.on()
-    await asyncio.sleep_ms(5_000)
-    flush_pin.off()
-    led.off()
-    #timer1.init(period=5000, mode=Timer.ONE_SHOT, callback=lambda t:flush_pin.off())   # Timer.ONE_SHOT
-    last_state=0
-    last_flush = time.ticks_ms()
-    
+    print("Flush on demand ended")
         
 
 #modes: away(0) -> close +  timer(1) -> timer(2) -> away + timer (3) -> flush(4)
@@ -61,8 +83,8 @@ async def flush():
 def in_proximity():
     global threshold
     range = int(tof.ping()/10) - 5
-    #print(range)
-    if range < threshold:
+    print(range)
+    if 10 < range < threshold:
         return True
     else:
         return False
@@ -74,32 +96,31 @@ else:
     
     
 last_test = 0
+
+
+async def timed_refresh():
+    last_flush = time.ticks_ms()
+    while True:
+        if time.ticks_diff(tmp := time.ticks_ms(), last_flush) > auto_flush_wait :
+            last_flush = tmp
+            print("timer flush")
+            event_flush.set()
+        
+        await asyncio.sleep(360)
+
+
+    
+    
 #while True:
 async def main():
     global last_state,last_test,last_flush
     counter = 0
     while True:
         
-        if time.ticks_diff(tmp := time.ticks_ms(), last_flush) > auto_flush_wait :
-            last_flush = tmp
-            print("timer flush")
-            flush_pin.on()
-            await asyncio.sleep_ms(3000)
-            flush_pin.off()
-
-        while switch.value() == 1:
-            #print("switch")
-            flush_pin.on()
-            await asyncio.sleep_ms(500)
-            #asyncio.create_task(flush())
-        if switch.value() == 0:
-            flush_pin.off()
-        
-        if last_state == 0 and in_proximity() and time.ticks_diff(tmp := time.ticks_ms(), last_test) > auto_flush_wait/2 :
-            flush_pin.on()
-            await asyncio.sleep_ms(500)
-            flush_pin.off()
-            
+         
+        if last_state == 0 and in_proximity() and time.ticks_diff(tmp := time.ticks_ms(), last_test) > auto_flush_wait*0.8 :
+            print("timed flush in proximity")
+            await flush()
             
         if last_state == 0 and in_proximity():
             last_state = 1
@@ -108,15 +129,17 @@ async def main():
         
             
         if last_state == 1:# and time.ticks_diff(tmp := time.ticks_ms(), last_test) >= 1000:
+            print("State = 1")
             await asyncio.sleep_ms(1_000)
             #last_test = tmp
             if in_proximity():
                 counter += 1
                 print(f"Close timer: {counter}")
-                if counter == 9:
+                if counter >= 9:
                     print("Ready to flush!")
                     led.on()
             else:
+                print("state 2 not in proximity")
                 if counter >= 9:
                     counter = 0
                     last_state = 2
@@ -129,6 +152,7 @@ async def main():
                 
         
         if last_state == 2: #and time.ticks_diff(tmp := time.ticks_ms(), last_test) >= 1000:
+            print("state = 2")
             #last_test = tmp
             await asyncio.sleep_ms(1_000)
             if not in_proximity():
@@ -152,11 +176,16 @@ async def main():
                 print(f"State 10 -> leaving State = {last_state}")
         
         if last_state == 3: #and time.ticks_diff(tmp := time.ticks_ms(), last_test) >= 1000:
-            asyncio.create_task(flush())
-            last_state = 5 #intermediate while flushing
+            print("State 3, flush")
+            await flush(on_demand=True)
+            
+            last_state = 0 #intermediate while flushing
             #print("should flush")
-            await asyncio.sleep_ms(10_000)
+            await asyncio.sleep(120)
         
-        await asyncio.sleep_ms(100)
+        await asyncio.sleep_ms(500)
+
+asyncio.create_task(flush())
+asyncio.create_task(timed_refresh())
 
 asyncio.run(main())

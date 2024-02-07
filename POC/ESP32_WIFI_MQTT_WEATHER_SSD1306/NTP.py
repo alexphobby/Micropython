@@ -17,7 +17,7 @@ class NTP:
         self.event_wifi_connected = event_wifi_connected
         self.event_request_ready = event_request_ready
         self.event_ntp_updated = event_ntp_updated
-        self.rtc = RTC()
+        #self.rtc = RTC()
         
 
         if platform == "ESP32":
@@ -30,7 +30,7 @@ class NTP:
     async def update_ntp(self):
             while True:
                 await self.event_wifi_connected.wait()
-                if self.wlan.isconnected() and (self.last_update == 0 or self.last_update != self.rtc.datetime()[2]):
+                if self.wlan.isconnected() and (self.last_update == 0 or self.last_update != time.localtime()[2]):
                     print("Get ntp time")
                     err=True
                     retry_count = 50
@@ -39,8 +39,8 @@ class NTP:
                             await self.event_request_ready.wait()
                             self.event_request_ready.clear()
                             ntptime.settime()
-                            print(f"NTP OK, Time: {self.rtc.datetime()}") #, current day: {self.rtc.datetime()[2]}")
-                            self.last_update = self.rtc.datetime()[2]
+                            print(f"NTP OK, Time: {time.localtime()}") #, current day: {self.rtc.datetime()[2]}")
+                            self.last_update = time.localtime()[2]
                             #await asyncio.sleep_ms(100)
                             await self.update_timezone()
                             err=False
@@ -74,8 +74,12 @@ class NTP:
                     self.event_request_ready.set()
                     result = True
                     if self.UTC_OFFSET != 0 :
-                        self.rtc.init((self.rtc.datetime()[0],self.rtc.datetime()[1],self.rtc.datetime()[2],self.rtc.datetime()[3] ,self.rtc.datetime()[4]+ self.UTC_OFFSET,self.rtc.datetime()[5],self.rtc.datetime()[6],self.rtc.datetime()[7]+500000))
-                        print(f"After UTC: {self.rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
+                        _tm = time.localtime()
+                        _tm = _tm[0:3] + (_tm[2]+ self.UTC_OFFSET,) + _tm[3:6] + (0,)
+                        RTC().datetime(_tm)
+                        _tm = None
+                        #self.rtc.init((self.rtc.datetime()[0],self.rtc.datetime()[1],self.rtc.datetime()[2],self.rtc.datetime()[3] ,self.rtc.datetime()[4]+ self.UTC_OFFSET,self.rtc.datetime()[5],self.rtc.datetime()[6],self.rtc.datetime()[7]+500000))
+                        print(f"After UTC: {time.localtime()}; UTC_OFFSET= {self.UTC_OFFSET}")
                         self.event_ntp_updated.set()
                         #await asyncio.sleep(0.5)
                     err = False
