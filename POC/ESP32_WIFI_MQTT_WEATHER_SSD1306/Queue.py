@@ -64,7 +64,7 @@ class Queue:
             print("Queue full")
             await self._evget.wait()
             # Task(s) waiting to get from queue, schedule first Task
-        print("aput")
+        print(f"aput val: {val}")
         self._put(val)
         
 

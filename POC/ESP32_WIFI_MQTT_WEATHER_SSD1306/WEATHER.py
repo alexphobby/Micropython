@@ -45,9 +45,9 @@ class WEATHER:
                 await asyncio.sleep(1*60) #30*60)
             else:
                 #print("Time wait")
-                self.event_weather_updated.clear()
-                self.event_sleep_ready.set()
-                await asyncio.sleep(60)
+                pass
+            
+            await asyncio.sleep(60)
 
             
             

@@ -101,9 +101,13 @@ class MQTTQueue(MQTTClient):
     async def a_wait_msg(self,queue):
         try:
             self.sock.setblocking(False)
+            #sent = self.sock.write(b"1")
+            #print(f"Send dummy, {sent}")
             res = self.sock.read(1)  # Throws OSError on WiFi fail
             if res is not None:
                 print(f"Sock read:{res}")
+        except Exception as ex:
+            print(f"a_wait_msg error: {ex}")
         except OSError as e:
             if e.args[0] in BUSY_ERRORS:  # Needed by RP2
                 await asyncio.sleep_ms(0)

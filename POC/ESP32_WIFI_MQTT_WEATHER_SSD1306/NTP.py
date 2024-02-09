@@ -73,13 +73,19 @@ class NTP:
                     self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
                     self.event_request_ready.set()
                     result = True
+                    print(f"UTC OFFSET {self.UTC_OFFSET}")
                     if self.UTC_OFFSET != 0 :
+                        _rtc = RTC()
+                        print(f"Before UTC: {_rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
                         _tm = time.localtime()
-                        _tm = _tm[0:3] + (_tm[2]+ self.UTC_OFFSET,) + _tm[3:6] + (0,)
-                        RTC().datetime(_tm)
+                        _tm = _tm[0:3] + (self.UTC_OFFSET,_tm[3]+ self.UTC_OFFSET,) + _tm[4:6] + (0,)
+                        print(_tm)
+                        
+                        _rtc.datetime(_tm)
+                        #RTC().datetime(_tm)
                         _tm = None
                         #self.rtc.init((self.rtc.datetime()[0],self.rtc.datetime()[1],self.rtc.datetime()[2],self.rtc.datetime()[3] ,self.rtc.datetime()[4]+ self.UTC_OFFSET,self.rtc.datetime()[5],self.rtc.datetime()[6],self.rtc.datetime()[7]+500000))
-                        print(f"After UTC: {time.localtime()}; UTC_OFFSET= {self.UTC_OFFSET}")
+                        print(f"After UTC: {_rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
                         self.event_ntp_updated.set()
                         #await asyncio.sleep(0.5)
                     err = False
