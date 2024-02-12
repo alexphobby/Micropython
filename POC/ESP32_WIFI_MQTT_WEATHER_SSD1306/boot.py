@@ -12,7 +12,7 @@ print(f"Frequency set to: {freq()}")
 print(f"Reset cause: {reset_cause()}")
 #import oled_temperature
 from i2c_init import *
-oled.poweroff()
+#oled.poweroff()
 import temperature
 
 #test()

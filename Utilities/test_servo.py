@@ -11,3 +11,5 @@ while True:
     time.sleep(1)
     servo.write(90)
     time.sleep(5)
+mid
+ vcx\zVC

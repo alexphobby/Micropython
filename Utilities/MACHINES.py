@@ -64,12 +64,43 @@ class MACHINES:
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","ambientlight","count"]
+            
+        elif self.guid == "c04e30813a64":
+            self.device = "a36_esp32c3_4"
+            self.name = "Dormitor_3"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","ambientlight","count"]
+            
+        elif self.guid == "c04e30814b98":
+            self.device = "a36_esp32c3_5"
+            self.name = "Box_1"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
+
+
+        elif self.guid == "8065996ad23c":
+            self.device = "a36_esp32c3_pump"
+            self.name = "Pump"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","last_event"]
+
+        elif self.guid == "c04e30814160":
+            self.device = "a36_esp32c3_7"
+            self.name = "Box_3"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
+
 
         else:
-            print("Machine not defined")
+            print(f"Machine {self.guid} not defined")
             
             self.device = "not defined"
             self.name = "not defined"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
