@@ -8,8 +8,7 @@ import time
 import asyncio
 from WEATHER import *
 from NTP import *
-from dim import Dim
-from brightness_map_1024 import brightness_map_1024
+#from dim import Dim
 from machine import lightsleep
 from MACHINES import *
 from machine import Signal,PWM,Pin,sleep,WDT
@@ -28,7 +27,7 @@ wdt = WDT(timeout=30000)
 wdt.feed()
 
 event_motion_sensed = Event()
-dimmer = Dim(10,fade_time_ms = 60)
+#dimmer = Dim(10,fade_time_ms = 60)
 debug = False
 
 set_temperature = 25
@@ -36,8 +35,8 @@ set_temperature = 25
 _PUMP_SLEEP_TIME= const(30_000)
 _MOTION_SLEEP_TIME = const(30_000)
 
-pump_sleep_time = 30*1000
-motion_th_time = 30*1000
+pump_sleep_time = 30*60*1000
+motion_th_time = 30*60*1000
 
 my_machine = MACHINES()
 from machine import RTC
@@ -91,7 +90,7 @@ async def start_pump():
                 led(False)
                 print("Run pump")
                 led2(True)
-                await asyncio.sleep(10)
+                await asyncio.sleep(60)
                 led2(False)
                 last_pump_run = time.ticks_ms()
             else:
@@ -121,7 +120,7 @@ def dim(strValue):
     global dim_value
     dim_value = int(float(strValue)*10.24)
     my_print(f"Dim to: {strValue} - {dim_value}")
-    dimmer.setReqIndex1(dim_value)
+    #dimmer.setReqIndex1(dim_value)
 
 
 
@@ -162,7 +161,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         try:
             
             my_print(f"Send on demand message on {my_machine.topic_send}")
-            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":0,"lastmotion":time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
             event_request_ready.clear()
             #my_print("ping")
             #client.ping()
@@ -189,7 +188,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             await event_request_ready.wait()
             try:
                 my_print(f"Send mqtt message on {my_machine.topic_send}")
-                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":last_motion,"autobrightness":0,"count":0}
+                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":last_motion,"autobrightness":0,"count":0}
                 #client.ping()
                 await asyncio.sleep_ms(100)
                 client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
