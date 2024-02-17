@@ -2,6 +2,9 @@ from machine import Pin, ADC,Timer
 from machine import PWM
 from brightness_map_1024 import brightness_map_1024 as brightness_map
 from sys import platform
+from MAP import *
+
+
 class Dim:
     step=1
     state = 0
@@ -22,6 +25,7 @@ class Dim:
         
         self.min2 = min2
         self.max2 = max2
+        self.map = MAP(0,100,min1,max1)
 
         self.max_index = len(brightness_map) - 1
         if platform == "rp2":
@@ -61,7 +65,11 @@ class Dim:
         #print(self.state, self.step1, self.step2)
         #print("Init to 0")
         
+    def dimToPercent(self,percent):
+        print(f"Dim to percent: {percent}")
+        self.setReqIndex1(round(self.map.map_value(percent)))
 
+        
     def setReqIndex1(self,reqIndex1):
         #self.ch1Enabled = True
         if not self.ch1Enabled:
@@ -82,7 +90,8 @@ class Dim:
             self.reqIndex1 = self.max1
             #return
         else:
-        #print(f"Setting req index 1 to {reqIndex1}")
+            
+            print(f"Setting req index 1 to {reqIndex1}")
             self.reqIndex1 = reqIndex1
         self.dimToSetpoint()
         

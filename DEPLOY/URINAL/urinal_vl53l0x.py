@@ -4,28 +4,29 @@ from machine import Pin, I2C, Timer, Signal
 from VL53L0X import VL53L0X
 import asyncio
 
-threshold = 30
+threshold = 26
 auto_flush_wait = 1000*60*60*24*2
 last_flush = 0
 
 print(f"Range threshold: {threshold} cm")
-flush_pin = Signal(Pin(22,Pin.OUT,value = 0), invert=True) # Pin(22, Pin.OUT,value=0) #
+flush_pin = Signal(Pin(22,Pin.OUT,value = 1), invert=True) # Pin(22, Pin.OUT,value=0) #
 event_flush = asyncio.Event()
 event_close = asyncio.Event()
-
+event_button_pressed = asyncio.Event()
 
 #led = Signal(Pin(9,Pin.OUT,value = 0), invert=False)
 led = Pin(21, Pin.OUT,value=0)
 
-switch = Pin(20,Pin.IN)
-def button_pressed(pin):
-    print("button")
-    event_flush.set()
+switch = Pin(20,Pin.IN,Pin.PULL_DOWN)
     
-switch.irq(handler=button_pressed,trigger=Pin.IRQ_RISING)
+#switch.irq(handler=button_pressed,trigger=Pin.IRQ_RISING)
 
-timer1 = Timer()
-timer2 = Timer()
+async def poll_button():
+    while True:
+        if switch.value():
+            event_flush.set()
+        
+        await asyncio.sleep(0.2)
 
 print("setting up i2c")
 
@@ -99,7 +100,7 @@ last_test = 0
 
 
 async def timed_refresh():
-    last_flush = time.ticks_ms()
+    last_flush = 0
     while True:
         if time.ticks_diff(tmp := time.ticks_ms(), last_flush) > auto_flush_wait :
             last_flush = tmp
@@ -118,15 +119,15 @@ async def main():
     while True:
         
          
-        if last_state == 0 and in_proximity() and time.ticks_diff(tmp := time.ticks_ms(), last_test) > auto_flush_wait*0.8 :
-            print("timed flush in proximity")
-            await flush()
-            
         if last_state == 0 and in_proximity():
-            last_state = 1
-            counter = 0
-            print("Close (1)")
-        
+            if time.ticks_diff(tmp := time.ticks_ms(), last_test) > auto_flush_wait*0.8 :
+                print("timed flush in proximity")
+                await flush()
+            else:              
+                last_state = 1
+                counter = 0
+                print("Close (1)")
+            
             
         if last_state == 1:# and time.ticks_diff(tmp := time.ticks_ms(), last_test) >= 1000:
             print("State = 1")
@@ -135,12 +136,12 @@ async def main():
             if in_proximity():
                 counter += 1
                 print(f"Close timer: {counter}")
-                if counter >= 9:
+                if counter >= 7:
                     print("Ready to flush!")
                     led.on()
             else:
                 print("state 2 not in proximity")
-                if counter >= 9:
+                if counter >= 7:
                     counter = 0
                     last_state = 2
                     print(f"State = {last_state}")
@@ -163,7 +164,7 @@ async def main():
                 last_state = 10
                 print(f"State 2->10 not leaving")
             
-            if counter >= 3:
+            if counter >= 2:
                 counter = 0
                 last_state = 3
                 print(f"State = {last_state}")
@@ -183,9 +184,10 @@ async def main():
             #print("should flush")
             await asyncio.sleep(120)
         
-        await asyncio.sleep_ms(500)
+        await asyncio.sleep_ms(2000)
 
 asyncio.create_task(flush())
+asyncio.create_task(poll_button())
 asyncio.create_task(timed_refresh())
 
 asyncio.run(main())

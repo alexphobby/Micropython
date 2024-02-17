@@ -154,6 +154,7 @@ client.set_callback(mqtt_cb)
 async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
     global event_request_ready
     my_print(f"mqtt_send_temp, on demand= {on_demand}")
+    _lastmotion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
     if on_demand:
         if not event_mq_connected.state:
             my_print("Cannot send, not connected to mq")
@@ -161,7 +162,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         try:
             
             my_print(f"Send on demand message on {my_machine.topic_send}")
-            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":0,"lastmotion":time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
             event_request_ready.clear()
             #my_print("ping")
             #client.ping()
@@ -188,7 +189,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             await event_request_ready.wait()
             try:
                 my_print(f"Send mqtt message on {my_machine.topic_send}")
-                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":last_motion,"autobrightness":0,"count":0}
+                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0}
                 #client.ping()
                 await asyncio.sleep_ms(100)
                 client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)

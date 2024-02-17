@@ -14,10 +14,10 @@ class MAP:
         self.slope = (out_max - out_min) / (in_max - in_min)
     
     def map_value(self,input):
-        #if abs(input) > abs(self.in_max):
-        #    return self.out_min
-        #if abs(input) < abs(self.in_min):
-        #    return self.out_min
+        if abs(input) > abs(self.in_max):
+            return self.out_max
+        elif abs(input) < abs(self.in_min):
+            return self.out_min
         #output = self.in_max * self.out_min/self.out_max
         print(f"{self.out_min} + {self.slope} * ({input} - {self.in_min})")
         

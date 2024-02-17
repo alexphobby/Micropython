@@ -21,16 +21,14 @@ class MACHINES:
             self.devicetype = "lights"
             self.features = ["thermometer","humidity","ambientlight"]
             
+            
         elif self.guid == "e6614103e7739437":
             self.device = "a36_other1"
             self.name = "Other1"
         
         elif self.guid == "e6614103e74f192e":
-            self.device = "a36_Birou"
-            self.name = "Birou"
-            self.devicetype = "lights"
-            self.features = ["thermometer","humidity","ambientlight"]
-
+            self.device = "a36_other2"
+            self.name = "Other2"
         
         elif self.guid == "e6614103e71a8e26":
             self.device = "a36_other3"
@@ -73,7 +71,7 @@ class MACHINES:
             
         elif self.guid == "c04e30813a64":
             self.device = "a36_esp32c3_4"
-            self.name = "Birou"
+            self.name = "Dormitor_3"
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","ambientlight","count"]
@@ -99,13 +97,6 @@ class MACHINES:
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity"]
-
-        elif self.guid == "3030f9baa92c":
-            self.device = "a36_birou"
-            self.name = "Birou"
-            self.devicetype = "lights"
-            self.features = ["thermometer","humidity","ambientlight"]
-
 
 
         else:

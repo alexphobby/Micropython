@@ -1,5 +1,4 @@
 import urequests
-
 import machine
 from machine import Pin,PWM
 from machine import Timer
@@ -10,35 +9,60 @@ import time
 import utime
 import ntptime
 import json
+import asyncio
 
 import sys
 import ubinascii
+from MACHINES import MACHINES
+my_machine = MACHINES()
+#from CONNECTWIFI import CONNECTWIFI
+#wifi = CONNECTWIFI()
+from i2c_init import *
+
+from WEATHER import *
+from NTP import *
+
+from asyncio import Event
+from Queue import Queue
+queue = Queue(5)
+event_wifi_connected = Event()
+event_mq_connected = Event()
+event_weather_updated = Event()
+event_sleep_ready = Event()
+event_request_ready = Event()
+event_request_ready.set()
+event_ntp_updated = Event()
+
+from CONNECTWIFI_AS import *
+wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
+ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready,event_ntp_updated)
+
+#print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+weather = WEATHER(event_wifi_connected,event_weather_updated,event_request_ready,event_sleep_ready)
+
+dim_value = 0
+def dim(strValue):
+    global dim_value
+    #dim_value = int(float(strValue)*10.23)
+    my_print(f"Dim to: {strValue}")
+    dimmer.dimToPercent(int(strValue))
+
 
 import random
-from CONNECTWIFI import CONNECTWIFI
-wifi = CONNECTWIFI()
-
-
-machine_id = str(ubinascii.hexlify(machine.unique_id()),"UTF-8")
 #sys.exit()
 #machines = {"e6614103e763b337":"a36_cam_mica","e6614103e7739437":"a36_cam_medie"}
 from dim import Dim
-from brightness_map import brightness_map
+from brightness_map_1024 import brightness_map_1024 as brightness_map
 from pid import PID
-
-
-
-
-
 
 led_pin = 21
 
 motion_pin = 5
-ir_pin = 6
+ir_pin = 16
 ambient_light_pin = 26
 
 fade_time_ms=2000
-dim = Dim(led_pin,16,0,236,0,230,fade_time_ms)
+dimmer = Dim(led_pin,fade_time_ms = fade_time_ms)
 
 #light = machine.Pin(led_pin,machine.Pin.OUT)
 #light_pwm = PWM(light)
@@ -53,42 +77,17 @@ dim = Dim(led_pin,16,0,236,0,230,fade_time_ms)
 debug = False #False
 
 
-from MACHINES import MACHINES
-machines = MACHINES()
 
-print(f"This machine: {machines.guid}, {machines.device}")
-topic_receive = machines.topic_receive
-topic_send = machines.topic_send
+
+print(f"This machine: {my_machine.guid}, {my_machine.device}")
+topic_receive = my_machine.topic_receive
+topic_send = my_machine.topic_send
 
 
 lastMotion = 0
 
-#NRF
-from machine import SPI
 from machine import Pin
 time.sleep(0.2)
-
-try: 
-    from nrf24l01 import NRF24L01
-    import ustruct as struct
-
-    spi = SPI(1)
-    csn = Pin(13)
-    ce=Pin(12)
-    nrf = NRF24L01(spi, csn, ce, payload_size=8)
-    _RX_POLL_DELAY = const(15)
-    _SLAVE_SEND_DELAY = const(10)
-    pipes = (b"\xe1\xf0\xf0\xf0\xf0", b"\xd2\xf0\xf0\xf0\xf0")
-    nrf.open_tx_pipe(pipes[1])
-    nrf.open_rx_pipe(1, pipes[0])
-    nrf.start_listening()
-
-    print("NRF24L01 slave mode, waiting for packets... (ctrl-C to stop)")
-
-except:
-    print("no nrf")
-#led = Pin('LED',Pin.OUT)
-
 
 #DS
 try:
@@ -106,22 +105,20 @@ try:
 except:
     print("no ds")
 
-from HDC1080 import HDC1080
 
 from machine import WDT
 
-wdt_is_enabled = False
-if machine.reset_cause() != 3: 
-    wdt = WDT(timeout=8000)
-    wdt_is_enabled = True
-    wdt.feed()
+#wdt_is_enabled = False
+#if machine.reset_cause() != 3: 
+#    wdt = WDT(timeout=8000)
+    #wdt_is_enabled = True
+    #wdt.feed()
 
 time.sleep(0.2)
 
 
 from my_remotes import remote_samsung
 from my_remotes import remote_tiny
-from my_remotes import brightness_map
 
 from ir_remote_read import ir_remote_read
 print("IR sensor library init")
@@ -130,6 +127,124 @@ ir_pin = Pin(ir_pin,Pin.IN) #,Pin.PULL_UP
 last_remote_button = ""
 remote_button = ""
 last_remote_button_time = time.ticks_ms()
+
+async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
+    global event_request_ready
+    my_print(f"mqtt_send_temp, on demand= {on_demand}")
+    if on_demand:
+        if not event_mq_connected.state:
+            my_print("Cannot send, not connected to mq")
+            return
+        try:
+            
+            my_print(f"Send on demand message on {my_machine.topic_send}")
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
+            event_request_ready.clear()
+            #my_print("ping")
+            #client.ping()
+            await asyncio.sleep_ms(100)
+            my_print(f"publish jsonDiscovery:{_output}")
+            client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
+            my_print(f"published jsonDiscovery:{_output}")
+            await asyncio.sleep_ms(50)
+            event_request_ready.set()
+            _output = None
+            event_request_ready.set()
+            #await asyncio.sleep(5)
+            #lightsleep(10000)
+            return
+        except Exception as ex:
+            my_print(f"mqtt_send error: {ex}")
+            event_mq_connected.clear()
+        return
+        my_print("should not run")
+    else:
+        while True: #Do not run
+            await event_wifi_connected.wait()
+            await event_mq_connected.wait()
+            await event_request_ready.wait()
+            try:
+                my_print(f"Send mqtt message on {my_machine.topic_send}")
+                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0}
+                #client.ping()
+                await asyncio.sleep_ms(100)
+                client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
+                await asyncio.sleep_ms(50)
+                _output = None
+                event_request_ready.set()
+            except Exception as ex:
+                my_print(f"mqtt_send error: {ex}")
+                event_mq_connected.clear()
+            await asyncio.sleep(30)
+
+
+
+async def process_queue(queue):
+    global client,event_wifi_connected,event_mq_connected
+    my_print("MQ process_queue initialised")
+    while True:
+        _msg = await queue.get()
+        my_print(f"Queue msg: {_msg}")
+        if _msg == "discovery":
+            my_print("Send discovery result")
+            await mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True)
+        
+        elif _msg == "update" and topic == my_machine.topic_receive:
+            my_print("Update from GitHub")
+            
+            #gc.collect
+            import update
+            update.update()
+        elif ":" in _msg:
+            try:
+                _command,_strValue = _msg.split(':')
+                my_print(f"MQ Command Run if available: {_command}, param: {_strValue}")
+                if _command in locals():
+                    locals()[_command](_strValue)
+            except Exception as ex:
+                my_print(f"Error unpacking or running: {_msg}, {ex}")
+
+        else:
+            my_print(f"Unknown command: {_msg}")
+        await asyncio.sleep(0.1)
+        event_sleep_ready.set()
+
+        
+
+async def mq_check_messages(client,time=5):
+    global event_sleep_ready,wifi,event_wifi_connected,event_mq_connected,event_request_ready,queue
+    while True:
+        #my_print(f"MQ Check msg wifi:{event_wifi_connected.state} mq:{event_mq_connected.state} req:{event_request_ready.state} ")
+        await event_wifi_connected.wait()
+        await event_mq_connected.wait()
+        await event_request_ready.wait()
+        event_sleep_ready.clear()
+
+        #led.value(True)
+        #await asyncio.sleep_ms(1)
+        #led.value(False)
+
+        try:
+            #client.ping()
+            #my_print("MQ Check msg")
+            if wifi.is_connected():
+                await asyncio.sleep(0.2)
+                #client.ping()
+                #client.check_msg()
+                await client.a_wait_msg(queue)
+                #my_print("client checked msg")
+                
+        except Exception as ex:
+            my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
+            event_mq_connected.clear()
+            event_request_ready.set()
+            await asyncio.sleep(2)
+
+        event_request_ready.set()
+        
+        await asyncio.sleep(time)
+        #await asyncio.sleep(1)
+        event_sleep_ready.set()
 
 
 def setAutoBrightness(strValue):
@@ -193,6 +308,7 @@ def pressed_button(button):
     else:
         try:
             directbutton = int(_button)
+            print(f"DirectButton= {directbutton}")
             if directbutton == 0:
                 brightness = 0
             elif directbutton == 1:
@@ -213,7 +329,9 @@ def pressed_button(button):
                 brightness = 112
             elif directbutton == 9:
                 brightness = 115
-                   
+                
+            dimmer.dimToPercent(directbutton*11)   
+            
         except:
             pass
     #desired = read_adc()
@@ -223,7 +341,8 @@ def pressed_button(button):
     #light_pwm.duty_u16(brightness_map[brightness])
     setAutoBrightness("false")
     time.sleep(0.1)
-    dim.setReqIndex1(brightness)
+    #dim.setReqIndex1(brightness)
+    
     
     #change_duty(brightness,"remote")
 
@@ -374,50 +493,68 @@ time.sleep(0.1)
 
 
 #res = urequests.get("https://google.com")
-result = False
-while result == False:
-    try:
-        res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest")
-        result = True
-    except:
-        print("err")
-        
-print("-----------")
-#print(res.json()["unixtime"])
 
-import ujson
-unixtime = int(res.json()["unixtime"])
-UTC_OFFSET = int(res.json()["utc_offset"][2:3])
+def pi_pico_ntp():
+    result = False
+    while result == False:
+        try:
+            res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest")
+            result = True
+        except:
+            print("err requests")
+            
+    print("-----------")
+    #print(res.json()["unixtime"])
 
-adjustedunixtime = int(unixtime + UTC_OFFSET*60*60)
-#print(f"Got time: {res.json()["unixtime"]}")
-tm = time.localtime(adjustedunixtime)
-machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
-print(unixtime)
-print(adjustedunixtime)
-print(time.localtime())
-print(f"Time is: {time.localtime()[3]}:{time.localtime()[4]}")
-print("-----------")
+    import ujson
+    unixtime = int(res.json()["unixtime"])
+    UTC_OFFSET = int(res.json()["utc_offset"][2:3])
+
+    adjustedunixtime = int(unixtime + UTC_OFFSET*60*60)
+    #print(f"Got time: {res.json()["unixtime"]}")
+    tm = time.localtime(adjustedunixtime)
+    machine.RTC().datetime((tm[0], tm[1], tm[2], tm[6] + 1, tm[3], tm[4], tm[5], 0))
+    print(unixtime)
+    print(adjustedunixtime)
+    print(time.localtime())
+    print(f"Time is: {time.localtime()[3]}:{time.localtime()[4]}")
+    print("-----------")
 
 last_run_time_send = 0
 last_run_time_receive = 0
 
 
-from mqtt import MQTTClient
+def my_print(message):
+    print(message)
+
 
 def mqttClient(ssl_enabled = False,name="pico"):
-    client = MQTTClient(client_id=b"" + name,
+    client = MQTTQueue(client_id=b"" + my_machine.name,
     server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
     port=8883,
-    user=b"apanoiu",
+    user=b"apanoiu_devices",
     password=b"Mqtt741852",
-    keepalive=3600,
-    ssl=ssl_enabled,
-    ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
+    keepalive=50000,
+    ssl=ssl_enabled #,
+    #ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
     )
 
     #client.connect()
     return client
+
+def mqtt_cb(topic,msg):
+    global queue,client,event_wifi_connected,event_mq_connected
+    my_print(f"cb: {msg}")
+    _msg = msg.decode()
+    queue._put(_msg)
+        
+
+#from umqtt.simple import MQTTClient
+from mqtt_queue import MQTTQueue
+client = mqttClient(True,my_machine.device)
+client.set_callback(mqtt_cb)
+
+
 
 def publish(topic_send, value):
     global client
@@ -427,10 +564,10 @@ def publish(topic_send, value):
     #print("publish Done")
 
 def sendTemperature(sender):
-    global topic_send,machines
+    global topic_send,my_machine
     
     print(f"sendTemperature function called by {sender}")
-    #publish(topic_send, f"name:{machines.name}")
+    #publish(topic_send, f"name:{my_machine.name}")
     publish(topic_send, f"temperature:{read_temperature()}")
     publish(topic_send, f"humidity:{read_humidity()}")
     publish(topic_send, f"ambient:{read_light()}")
@@ -460,18 +597,18 @@ def setAutoBrightness(strValue):
     #discovery("setAutobrightness")
 
 def discovery(sender):
-    global topic_send,machines,lastMotion,autoBrightness
+    global topic_send,my_machine,lastMotion,autoBrightness
     print(f"Discovery function called by {sender}")
     temperature = read_temperature()
     humidity = read_humidity()
     ambient = read_light()
     dim = read_dim()
-    output = {"devicename":str(machines.device),"roomname":str(machines.name),"devicetype": str(machines.devicetype),"features": str(machines.features),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
+    output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
     #_output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
     
     #output = json.loads()
-    #publish(topic_send, f"device:{machines.device}")
-    #publish(topic_send, f"name:{machines.name}")
+    #publish(topic_send, f"device:{my_machine.device}")
+    #publish(topic_send, f"name:{my_machine.name}")
     #if (time.time() - lastMotion ) / 60 < 5:
     #publish(topic_send, f"lastmotion:{lastMotion}")
     #sendTemperature("Discovery")
@@ -547,39 +684,17 @@ def sub_cb(topic, msg):
     else:
         print(f"Other {topic}: {str(topic)[str(topic).find('/')+1:str(topic).find('/')+2]}")
  
-print("Init MQTT")
-try:
-    client = mqttClient(True,machines.device)
-    client.set_callback(sub_cb)
-    client.connect()
-
-    client.subscribe(topic = topic_receive)
-    client.subscribe(topic = "to/#")
-    print(f"Subscribed to: {topic_receive}")
-
-except:
-    print("err mqtt")
-#client.subscribe(topic = "picow/lights")
 
 import struct
 import random
 
 
 #Update time from NTP
-if wdt_is_enabled:
-    wdt.feed()
+#if wdt_is_enabled:
+#    wdt.feed()
 
 #import NTP
 #from NTP import ro_time_epoch
-
-try:
-            
-    client.ping()
-    #sendTemperature("Init")
-    discovery("Init")
-except Exception as ex:
-    print(f"Error sending to MQ: {ex}")
-    client.connect()
 
 
 
@@ -590,36 +705,14 @@ adc = ADC(ambient_light_pin)
 
 
 #saved settings:
-file = open("config.py", "r")
-settings = file.read()
-settings_dict = json.loads(settings)
-humidity_setpoint = int(settings_dict["humidity_setpoint"])
+#file = open("config.py", "r")
+#settings = file.read()
+#settings_dict = json.loads(settings)
+#humidity_setpoint = int(settings_dict["humidity_setpoint"])
 
-dimSetPoint = int(adc.read_u16()* 233 / 65534)
+#dimSetPoint = int(adc.read_u16()* 233 / 65534)
 
-#analogReadings = []
-analogReading = 0
 
-def analogReadings(self):
-    global analogReading,motion
-    average = 0
-    analogReadings = []
-    if motion.value() == 1:
-        return
-
-    for i in range(20):
-        analogReadings.append(int(adc.read_u16()* 233 / 65534))
-        analogReadings.pop(0)
-        
-        #print(f"Instant: {lightReadings[-1]};average: {old_average}")
-    #average = 0
-    
-    for value in analogReadings:
-        average = average + value/20
-        
-    if int(abs(average - analogReading)) > 3:
-            #print(f"Update: {int(average)}")
-        analogReading = int(average)
 #pwm_pin = Pin(15,Pin.OUT)
 #pwm_pin.low()
 
@@ -658,10 +751,6 @@ def dimToOff(timer):
 
    
 
-#timer.init(freq=1, mode=Timer.PERIODIC, callback=blink)
-timer.init(period=1000, mode=Timer.ONE_SHOT, callback=analogReadings)   # Timer.ONE_SHOT . Period in m
-
-timer_check_messages.init(period=1000, mode=Timer.PERIODIC, callback=lambda t:client.check_msg())   # Timer.ONE_SHOT . Period in m
 
 motionOccurances = 0
 _MOTIONTHRESHOLDSECONDS = const(2)
@@ -682,7 +771,106 @@ def motion_sensed(pin):
 motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 
 
+async def wifi_connection_check(wifi):
+    global event_mq_connected,event_wifi_connected
+    while True:
+        my_print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+        if wifi.is_connected():
+            if event_wifi_connected.state:
+                pass
+            else:
+                event_wifi_connected.set()
+        else:
+            my_print("Wifi not connected, clear wifi and mq events")
+            event_mq_connected.clear()
+            event_wifi_connected.clear()
+                
+        await asyncio.sleep(30)
+
+
+async def mq_connection_check(event_wifi_connected,event_mq_connected):
+    while True:
+        #my_print(f"mq_connection_check, event_mq_connected.status={event_mq_connected.state} ")
+        await event_wifi_connected.wait()
+        await event_request_ready.wait()
+        gc.collect()
+        if not event_mq_connected.state:
+            my_print("mq_connection_check call connect")
+            await asyncio.sleep(1)
+            
+            await connect_mq(event_request_ready)
+            
+        #my_print(f"called mq connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+        await asyncio.sleep(5)
+
+async def connect_mq(event_request_ready): 
+    if True: #while True:
+        my_print(f"MQ connection - wait for wifi: {event_wifi_connected.state} and request: {event_request_ready.state}")
+        await event_wifi_connected.wait()
+        event_sleep_ready.clear()
+        await asyncio.sleep(2)
+        #my_print("MQ connection - wifi ok")
+        try:
+            #await event_request_ready.wait()
+            my_print("MQ connection - connect")
+            gc.collect()
+            await asyncio.sleep(0)
+            my_print(f"connect_mq - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+            event_request_ready.clear()
+            client.connect()
+            gc.collect()
+            client.subscribe(topic = b"to/*")
+            #gc.collect()
+            #client.check_msg()
+            await client.a_wait_msg(queue)
+            client.subscribe(topic = my_machine.topic_receive)
+            my_print("MQ connected and subscribed")
+            event_mq_connected.set()
+            event_sleep_ready.set()
+            
+        except Exception as ex:
+            my_print(f"Err connecting to MQ, {ex}")
+            event_mq_connected.clear()
+        event_request_ready.set()
+        await asyncio.sleep(2) 
+        
+
+
+async def main():
+    await wifi.check_and_connect()
+    t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi)) #not handled
+    t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
+    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
+    t_process_queue = asyncio.create_task(process_queue(queue))
+
+    while True:
+        await asyncio.sleep(5)
+    #    print("sleep")
+
+
+
+
+if True: #try:
+    my_print("Async call main")
+    asyncio.run(main())
+    #loop = asyncio.get_event_loop()
+    #loop.run_forever()
+    #asyncio.run(heartbeat_oled(client))
+#except Exception as ex:
+#    my_print(f"Catch: {ex}")
 while True:
+    time.sleep(1)
+#finally:
+#    my_print(f"finally: ")
+#    asyncio.new_event_loop()
+
+
+
+
+
+
+
+while False:
     if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_receive) >= 1000:
         last_run_time_receive = tmp
         if wdt_is_enabled:

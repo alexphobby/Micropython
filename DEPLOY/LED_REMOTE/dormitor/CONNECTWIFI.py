@@ -2,23 +2,19 @@ import network
 import urequests
 import time
 import secrets
-from machine import Pin
-#import binascii
-from sys import platform
+
 
 class CONNECTWIFI:
 #    hotspots = []
     hotspot = ""
+    result = ""
     wlan=None
-    #wlanPower = Pin(23,Pin.OUT)
-    
     #wlan = ""
     i=0
     def __init__(self):
         """Initialize wifi connection and try all hotspots with a password
             It needs the secrets.py file with PASSWORD = 'pass'
         """
-        
         self.check_and_connect()
         
         
@@ -26,48 +22,62 @@ class CONNECTWIFI:
         while self.wlan is None:
             print("Init wlan")
             self.wlan = network.WLAN(network.STA_IF)
+            time.sleep(0.1)
             self.wlan.active(True)
-            if platform == "rp2":
-                time.sleep(6)
-            elif platform == "ESP32":
-                pass
+            time.sleep(6)
         
         if self.wlan.isconnected() == False:
             print("Need to connect")
+            try:
+                self.result = self.connect_to_default()
+                #print(f"Cannot connect to default, result = {self.result}")
+           #     return
+            except:
+                print(f"Cannot connect to default")
+                
             self.connect()
         else:
             print("Is Connected")
-    def is_connected(self):
-        return self.wlan.isconnected()
+            
+    def connect_to_default(self):
+        if not self.wlan.isconnected():
+            print(f"Try to connect to: {secrets.SSID},Pass: {secrets.PASSWORDS[0]}")
+            self.wlan.connect(secrets.SSID, secrets.PASSWORDS[0])
+            time.sleep(10)
+            print(f"Status: {self.wlan.status()}")
+            
+            
+        if self.wlan.status() == 3:
+            print(f"Connected")
+            return True
+        else:
+            print(f"raise err Status: {self.wlan.status()}")
+            raise Exception("ERR Cannot connect to default")
+            
         
     def connect(self):
-        #err=True
-        counter = 50
-        
 
-        while not self.wlan.isconnected() and counter > 0 : #and err:
-            counter -= 1
+        while not self.wlan.isconnected():
             print(f"Wlan not connected, wlan status = {self.wlan.status()}")
-            
+            #define CYW43_LINK_DOWN (0)
+            #define CYW43_LINK_JOIN (1)
+            #define CYW43_LINK_NOIP (2)
+            #define CYW43_LINK_UP (3)
+            #define CYW43_LINK_FAIL (-1)
+            #define CYW43_LINK_NONET (-2)
+            #define CYW43_LINK_BADAUTH (-3)
+#            if True:
             try:
-                self.wlan.connect(secrets.SSIDS[0], secrets.PASSWORDS[0])
-                time.sleep(1)
-                print(f"wlan status = {self.wlan.status()}")
-                while self.wlan.status() in [1,1001]: #STAT_CONNECTING
-                    print("Connecting")
-                    time.sleep(0.5)
-                    
-                if self.wlan.isconnected():
-                    print("Connected!")
-                    return
-                else:
+                if self.wlan.status() == 1: # after wlan.active(True)
+                    print("Joining")
+                    time.sleep(2)
+                
+                if self.wlan.status() != 2 : # after wlan.active(True)
                     print(f"wlan status = {self.wlan.status()}")
-                self.hotspots = []
-                print(f"Hotspots: {self.hotspots}")
-                    
-                while len(self.hotspots) == 0:
-                    self.hotspots = self.wlan.scan()
-                    time.sleep(1)
+                    self.hotspots = []
+                    print(f"Hotspots: {self.hotspots}")
+                    while len(self.hotspots) == 0:
+                        self.hotspots = self.wlan.scan()
                         
                     _i=0
                     print("Available hotspots:")
@@ -76,9 +86,6 @@ class CONNECTWIFI:
                         _i=_i+1
                     
                     for hotspot in self.hotspots:
-                        if len(hotspot[0]) < 3 or str(hotspot[0],"UTF-8") not in secrets.SSIDS:
-                            print(f"Skip {hotspot}")
-                            continue
                         #if self.wlan.isconnected():
                         #    break
                         
@@ -86,7 +93,6 @@ class CONNECTWIFI:
                             print(f"Trying to connect to: {str(hotspot[0])} with password: {password}, current status = {self.wlan.status()}")
                             self.wlan.connect(hotspot[0], password)
                             time.sleep(5)
-                            print(f"Status = {self.wlan.status()}")
                             
                             if self.wlan.status()==1:
                                 print(f"Connecting to {str(hotspot[0])}")
@@ -102,13 +108,9 @@ class CONNECTWIFI:
                                 print(f"Wait to connect to: {str(hotspot[0])}")
                                 time.sleep(3)
                             
-                            if self.wlan.isconnected():
+                            if self.wlan.status() == 3:
                                 print(f"Connected to: {str(hotspot[0])}")
                                 return
-                            else:
-                                self.wlan.active(False)
-                                self.wlan.active(True)
-                                time.sleep(5)
                         
                     #wlan.connect(secrets.SSID, secrets.PASSWORD)
                     #wdt.feed()
@@ -116,8 +118,7 @@ class CONNECTWIFI:
                             
             except Exception as ex:
 #                pass
-                print(f"Err - Cannot connect, current status = {self.wlan.status()}, {ex}")
-                time.sleep(1)
+                print(f"Err - Cannot connect to {hotspot[0]}, current status = {self.wlan.status()}, {ex}")
 
         
 
