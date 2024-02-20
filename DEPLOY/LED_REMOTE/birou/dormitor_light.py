@@ -1,9 +1,6 @@
 import urequests
 import machine
-from machine import Pin,PWM
-from machine import Timer
-from machine import PWM
-from machine import ADC
+from machine import Pin,PWM,Timer,ADC,time_pulse_us
 
 import time
 import utime
@@ -834,7 +831,45 @@ async def connect_mq(event_request_ready):
         event_request_ready.set()
         await asyncio.sleep(2) 
         
+read_pulses = []
+pulse_in = 0
+old_pulse_in = 0
+event_matter = Event()
+pwm_in = Pin(4,Pin.IN)
+async def read_pulse_in():
+    global read_pulses,pulse_in,old_pulse_in
+    while True:
+        await asyncio.sleep_ms(500)
+        machine.time_pulse_us(pwm_in,1,10000)
+        #read_pulses.append(round(machine.time_pulse_us(pwm_in,1,10000)/10))
+        _first_pulse_in = machine.time_pulse_us(pwm_in,1,10000)
+        _second_pulse_in = machine.time_pulse_us(pwm_in,1,10000)
+        if first_pulse_in != second__pulse_in:
+            continue
+        if _second_pulse_in == -2:
+            pulse_in = 0
+        elif _second_pulse_in == -1:
+            pulse_in = 100
+        else:
+            pulse_in = round(_second_pulse_in/10)
+            
+        if abs(pulse_in - old_pulse_in) > 2:
+            print("Matter change")
+            old_pulse_in = pulse_in
+            event_matter.set()
+        #if len(read_pulses) >5:
+        #    read_pulses.pop(0) 
+        #pulse_in = round(sum(read_pulses) / len(read_pulses))
 
+async def print_pulse_in():
+    await asyncio.sleep(5)
+    while True:
+        await event_matter.wait()
+        event_matter.clear()
+        print(f"async def read_pulse_in()={pulse_in}") # , pulses: {read_pulses[0]},{read_pulses[1]},{read_pulses[2]},{read_pulses[3]},{read_pulses[4]},{read_pulses[5]}")
+        dimmer.dimToPercent(pulse_in)
+        #await asyncio.sleep(1)
+        
 
 async def main():
     await wifi.check_and_connect()
@@ -842,6 +877,9 @@ async def main():
     t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
     t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
     t_process_queue = asyncio.create_task(process_queue(queue))
+    t_read_pulse_in = asyncio.create_task(read_pulse_in())
+    
+    t_print_pulse_in = asyncio.create_task(print_pulse_in())
 
     while True:
         await asyncio.sleep(5)
