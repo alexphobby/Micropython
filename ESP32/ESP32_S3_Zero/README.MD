@@ -1,4 +1,6 @@
 
+v1.23.0 Preview
+
 micropython\ports\esp32\boards\ESP32_GENERIC_S3\sdkconfig.board
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
