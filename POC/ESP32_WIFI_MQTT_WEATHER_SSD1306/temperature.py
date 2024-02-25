@@ -28,7 +28,9 @@ event_ntp_updated = Event()
 
 debug = False 
 
+
 my_machine = MACHINES()
+
 
 def my_print(message):
     print(message)
@@ -37,7 +39,7 @@ def my_print(message):
 def debug_oled(message):
     global debug
     if debug:
-        
+        print("oled msg")
         oled_write.set_textpos(oled,56,0)
         oled_write.printstring(f'{message}\n')
         oled.show()
@@ -167,11 +169,8 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
     
 
 async def heartbeat_oled(wifi):
-    global set_temp,weather,led,led_value,event_wifi_connected,event_mq_connected
-    
+    global set_temp,weather,led,led_value,event_wifi_connected,event_mq_connected,debug
     my_print("heartbeat_oled")
-    
-        
     last_minute = -1 #rtc.datetime()[5]
     
     while True:
@@ -186,9 +185,8 @@ async def heartbeat_oled(wifi):
 
         if last_minute != rtc.datetime()[5]:
             my_print("diff")
-            oled.contrast(2)
-
-            oled.fill(0)
+            
+            #oled.fill(0)
             oled_write.set_textpos(oled,20,0)
             if temp_sensor.temperature() == -100:
                 oled_write.printstring(f'In: -')
@@ -215,13 +213,10 @@ async def heartbeat_oled(wifi):
         
         if light_sensor.enabled:
             oled.hline(0,62,128,0)
-            oled.hline(0,62,int(map_ambient_light_oled.map_value(_ambient_light)),1)
+            oled.hline(0,62,int(map_ambient_light_oled.map_value(light_sensor.light())),1)
             
         oled.show()
-        
         await asyncio.sleep(5)
-            
-
 
 t = None
 tasks = []
@@ -269,6 +264,7 @@ async def process_queue(queue):
 
 async def mq_check_messages(client,time=5):
     global event_sleep_ready,wifi,event_wifi_connected,event_mq_connected,event_request_ready,queue
+    counter = 1
     while True:
         #my_print(f"MQ Check msg wifi:{event_wifi_connected.state} mq:{event_mq_connected.state} req:{event_request_ready.state} ")
         await event_wifi_connected.wait()
@@ -288,6 +284,13 @@ async def mq_check_messages(client,time=5):
                 #client.ping()
                 #client.check_msg()
                 await client.a_wait_msg(queue)
+                await asyncio.sleep(0)
+                counter += 1
+                if counter%30 == 0:
+                    print("send ping")
+                    client.ping()
+                    if counter>1000:
+                        counter = 0
                 my_print("client checked msg")
                 
         except Exception as ex:
@@ -340,7 +343,7 @@ async def connect_mq(event_request_ready):
         my_print(f"MQ connection - wait for wifi: {event_wifi_connected.state} and request: {event_request_ready.state}")
         await event_wifi_connected.wait()
         event_sleep_ready.clear()
-        await asyncio.sleep(2)
+        await asyncio.sleep(0)
         #my_print("MQ connection - wifi ok")
         try:
             #await event_request_ready.wait()
@@ -352,12 +355,11 @@ async def connect_mq(event_request_ready):
             client.connect()
             gc.collect()
             client.subscribe(topic = b"to/*")
-            #gc.collect()
-            await client.a_wait_msg(queue)
-            client.subscribe(topic = my_machine.topic_receive)
+            gc.collect()
+            #client.subscribe(topic = my_machine.topic_receive)
             my_print("MQ connected and subscribed")
             event_mq_connected.set()
-            event_sleep_ready.set()
+            #event_sleep_ready.set()
             
         except Exception as ex:
             my_print(f"Err connecting to MQ, {ex}")
@@ -374,24 +376,24 @@ async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_read
         await event_sleep_ready.wait()
         if not event_weather_updated.state:
             await asyncio.sleep(3)
-        my_print("sleep")
-        time.sleep_ms(50)
-        lightsleep(10000)
-        my_print("sleep done")
-        #time.sleep(5)
+        #my_print("sleep")
+        #time.sleep_ms(50)
+        #await asyncio.sleep(3)
+        #lightsleep(2000)
+        await asyncio.sleep(0)
         event_sleep_ready.clear()
-        await asyncio.sleep(5)
+        #await asyncio.sleep(5)
         
 async def update_contrast():
     while True:
         if light_sensor.enabled:
             _ambient_light = light_sensor.light()
             if _ambient_light <10:
-                oled.contrast(2)
+                oled.contrast(0)
             elif _ambient_light <30:
-                oled.contrast(10)
+                oled.contrast(5)
             elif _ambient_light <50:
-                oled.contrast(30)
+                oled.contrast(10)
             else:
                 oled.contrast(150)
         await asyncio.sleep(60)
@@ -413,20 +415,18 @@ async def mq_ping(client):
         
 async def main():
     await wifi.check_and_connect()
-    #asyncio.create_task(check_queue(queue))
+    asyncio.create_task(check_queue(queue))
     t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi)) #not handled
     t_ntp_update = asyncio.create_task(ntp.update_ntp())
 
     t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
-    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,10))
     t_process_queue = asyncio.create_task(process_queue(queue))
-    
     t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
     
     t_oled_update = asyncio.create_task(heartbeat_oled(wifi))
     t_update_contrast = asyncio.create_task(update_contrast())
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False)) #send discovery on interval#
-    
+    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,1))
     t_mq_ping = asyncio.create_task(mq_ping(client))
     
     

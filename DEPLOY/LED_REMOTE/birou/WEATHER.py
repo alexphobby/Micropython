@@ -23,7 +23,10 @@ class WEATHER:
                     self.event_request_ready.clear()
                     self.event_sleep_ready.clear()
                     #self.weather = requests.get("http://api.open-meteo.com/v1/forecast?latitude=44.42&longitude=26.06&hourly=temperature_2m,precipitation&timezone=Europe%2FMoscow&forecast_days=1").json()
+                    gc.collect()
+                    print("Update weather")
                     self.weather = requests.get("http://api.open-meteo.com/v1/forecast?latitude=44.42&longitude=26.06&hourly=apparent_temperature,precipitation,temperature_2m&timezone=Europe%2FMoscow&forecast_days=1").json()
+                    gc.collect()
                     self.event_request_ready.set()
                     
                     #print(f"Outside temp: {self.weather["hourly"]["temperature_2m"][time.localtime()[3]]}")

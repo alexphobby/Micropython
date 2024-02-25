@@ -35,7 +35,7 @@ wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
 ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready,event_ntp_updated)
 
 #print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
-weather = WEATHER(event_wifi_connected,event_weather_updated,event_request_ready,event_sleep_ready)
+#weather = WEATHER(event_wifi_connected,event_weather_updated,event_request_ready,event_sleep_ready)
 
 dim_value = 0
 def dim(strValue):
@@ -203,45 +203,11 @@ async def process_queue(queue):
 
         else:
             my_print(f"Unknown command: {_msg}")
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         event_sleep_ready.set()
 
         
 
-async def mq_check_messages(client,time=5):
-    global event_sleep_ready,wifi,event_wifi_connected,event_mq_connected,event_request_ready,queue
-    while True:
-        #my_print(f"MQ Check msg wifi:{event_wifi_connected.state} mq:{event_mq_connected.state} req:{event_request_ready.state} ")
-        await event_wifi_connected.wait()
-        await event_mq_connected.wait()
-        await event_request_ready.wait()
-        event_sleep_ready.clear()
-
-        #led.value(True)
-        #await asyncio.sleep_ms(1)
-        #led.value(False)
-
-        try:
-            #client.ping()
-            #my_print("MQ Check msg")
-            if wifi.is_connected():
-                await asyncio.sleep(0.2)
-                #client.ping()
-                #client.check_msg()
-                await client.a_wait_msg(queue)
-                #my_print("client checked msg")
-                
-        except Exception as ex:
-            my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
-            event_mq_connected.clear()
-            event_request_ready.set()
-            await asyncio.sleep(2)
-
-        event_request_ready.set()
-        
-        await asyncio.sleep(time)
-        #await asyncio.sleep(1)
-        event_sleep_ready.set()
 
 
 def setAutoBrightness(strValue):
@@ -817,6 +783,7 @@ async def connect_mq(event_request_ready):
             client.connect()
             gc.collect()
             client.subscribe(topic = b"to/*")
+            await asyncio.sleep(1)
             #gc.collect()
             #client.check_msg()
             await client.a_wait_msg(queue)
@@ -830,21 +797,65 @@ async def connect_mq(event_request_ready):
             event_mq_connected.clear()
         event_request_ready.set()
         await asyncio.sleep(2) 
+
+
+async def mq_check_messages(client,time=5):
+    global event_sleep_ready,wifi,event_wifi_connected,event_mq_connected,event_request_ready,queue
+    counter = 0
+    while True:
+        #my_print(f"MQ Check msg wifi:{event_wifi_connected.state} mq:{event_mq_connected.state} req:{event_request_ready.state} ")
+        await event_wifi_connected.wait()
+        await event_mq_connected.wait()
+        await event_request_ready.wait()
+        event_sleep_ready.clear()
+
+        #led.value(True)
+        #await asyncio.sleep_ms(1)
+        #led.value(False)
+
+        try:
+            #client.ping()
+            #my_print("MQ Check msg")
+            if wifi.is_connected():
+                #await asyncio.sleep(0.2)
+                #client.check_msg()
+                await client.a_wait_msg(queue)
+                await asyncio.sleep(0)
+                counter += 1
+                if counter%30 == 0:
+                    print("send ping")
+                    client.ping()
+                
+                print(counter)
+                #my_print("client checked msg")
+                
+        except Exception as ex:
+            my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
+            event_mq_connected.clear()
+            event_request_ready.set()
+            await asyncio.sleep(2)
+
+        event_request_ready.set()
         
+        await asyncio.sleep(time)
+        #await asyncio.sleep(1)
+        event_sleep_ready.set()
+
 read_pulses = []
 pulse_in = 0
 old_pulse_in = 0
 event_matter = Event()
 pwm_in = Pin(4,Pin.IN)
+
 async def read_pulse_in():
     global read_pulses,pulse_in,old_pulse_in
     while True:
-        await asyncio.sleep_ms(500)
-        machine.time_pulse_us(pwm_in,1,10000)
+        await asyncio.sleep_ms(1000)
+        #machine.time_pulse_us(pwm_in,1,10000)
         #read_pulses.append(round(machine.time_pulse_us(pwm_in,1,10000)/10))
         _first_pulse_in = machine.time_pulse_us(pwm_in,1,10000)
         _second_pulse_in = machine.time_pulse_us(pwm_in,1,10000)
-        if first_pulse_in != second__pulse_in:
+        if _first_pulse_in != _second_pulse_in:
             continue
         if _second_pulse_in == -2:
             pulse_in = 0
@@ -882,11 +893,27 @@ async def main():
     t_print_pulse_in = asyncio.create_task(print_pulse_in())
 
     while True:
-        await asyncio.sleep(5)
-    #    print("sleep")
+        await asyncio.sleep(10)
+        gc.collect()
+        
+        if t_wifi_connection_check.done():
+            t_wifi_connection_check = None
+            t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi))
+        
+        if t_process_queue.done():
+            my_print("process_queue is done")
+            t_process_queue = None
+            t_process_queue = asyncio.create_task(process_queue(queue))
+        
+        if t_mq_connection_check.done():
+            t_mq_connection_check = None
+            t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
 
-
-
+        if t_mq_check_messages.done():
+            t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
+    
+        if t_process_queue.done():
+            t_process_queue = asyncio.create_task(process_queue(queue))
 
 if True: #try:
     my_print("Async call main")
@@ -896,6 +923,7 @@ if True: #try:
     #asyncio.run(heartbeat_oled(client))
 #except Exception as ex:
 #    my_print(f"Catch: {ex}")
+
 while True:
     time.sleep(1)
 #finally:
@@ -904,29 +932,4 @@ while True:
 
 
 
-
-
-
-
-while False:
-    if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_receive) >= 1000:
-        last_run_time_receive = tmp
-        if wdt_is_enabled:
-            wdt.feed()
-        #received = client.check_msg()
-
-    if time.ticks_diff(tmp := time.ticks_ms(), last_run_time_send) >= 300000:
-        last_run_time_send = tmp
-        try:
-            
-            client.ping()
-            #publish('fromCMica', f"dt:{str(round(ds.read_temp(ds_id),1 ) )}")
-            #publish('fromCMica', f"t:{read_temperature()}")
-            #publish('fromCMica', f"h:{read_humidity()}")
-            #publish('fromCMica', f"l:{read_light()}")
-            #sendTemperature("300s loop")
-            
-        except Exception as ex:
-            print(f"Error sending to MQ: {ex}")
-            client.connect()
 
