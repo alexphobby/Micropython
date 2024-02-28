@@ -2,7 +2,10 @@ import utime
 from utime import ticks_ms, ticks_diff
 from sys import platform
 if (platform == "esp32"):
-    from umqtt.simple import MQTTClient
+    try:
+        from umqtt.simple import MQTTClient
+    except:
+        from umqtt import MQTTClient
 elif platform == "rp2":
     print("Pi Pico")
     from umqtt import MQTTClient
@@ -188,3 +191,4 @@ class MQTTQueue(MQTTClient):
             await self._as_write(pkt)
         elif op & 6 == 4:  # qos 2 not supported
             raise OSError(-1, "QoS 2 not supported")
+        return True 

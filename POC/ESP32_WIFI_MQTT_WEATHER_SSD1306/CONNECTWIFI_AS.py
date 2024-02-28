@@ -25,7 +25,16 @@ class CONNECTWIFI_AS:
         self.wlan = network.WLAN(network.STA_IF)
         self.wlan.active(False)
         self.wlan.active(True)
-        self.wlan.config(dhcp_hostname=hostname)
+        try:
+            self.wlan.config(dhcp_hostname=hostname)
+        except:
+            try:
+                self.wlan.config(hostname=hostname)
+            except:
+                print("Cannot dset hostname")
+        
+            
+            
         self.wlan.config(pm=self.wlan.PM_POWERSAVE) #PM_NONE|PM_PERFORMANCE|PM_POWERSAVE
         
         print("call async check_and_connect")

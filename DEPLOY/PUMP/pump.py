@@ -192,7 +192,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
                 _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0}
                 #client.ping()
                 await asyncio.sleep_ms(100)
-                client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
+                client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 1,retain=True)
                 await asyncio.sleep_ms(50)
                 _output = None
                 event_request_ready.set()
