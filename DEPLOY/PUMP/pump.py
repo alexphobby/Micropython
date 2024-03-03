@@ -9,9 +9,8 @@ import asyncio
 from WEATHER import *
 from NTP import *
 #from dim import Dim
-from machine import lightsleep
 from MACHINES import *
-from machine import Signal,PWM,Pin,sleep,WDT
+from machine import Signal,PWM,Pin,sleep,WDT,lightsleep
 from asyncio import Event
 from Queue import Queue
 queue = Queue(5)
@@ -23,7 +22,7 @@ event_request_ready = Event()
 event_request_ready.set()
 event_ntp_updated = Event()
 
-wdt = WDT(timeout=30000)
+wdt = WDT(timeout=40000)
 wdt.feed()
 
 event_motion_sensed = Event()
@@ -32,42 +31,24 @@ debug = False
 
 set_temperature = 25
 
-_PUMP_SLEEP_TIME= const(30_000)
-_MOTION_SLEEP_TIME = const(30_000)
-
-pump_sleep_time = 30*60*1000
-motion_th_time = 30*60*1000
+_PUMP_SLEEP_TIME= const(30*60*1000)
+_MOTION_SLEEP_TIME = const(30*60*1000)
 
 my_machine = MACHINES()
 from machine import RTC
 rtc = RTC()
 
 led = Signal(Pin(8,Pin.OUT,value=1),invert=True)
-
-led2 = Signal(Pin(2,Pin.OUT,value=0,drive=Pin.DRIVE_3),invert=False)
+led_motion = Pin(5,Pin.OUT,value = 0)
+pump = Signal(Pin(2,Pin.OUT,value=0,drive=Pin.DRIVE_3),invert=False)
 led_value = True
 
 from CONNECTWIFI_AS import *
 wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
 ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready,event_ntp_updated)
 
-last_motion = time.ticks_ms()
-last_motion_rtc = rtc.datetime()
-last_pump_run = 0
-
-def button_int(pin):
-    global led_value,last_motion
-    print(f"Pressed: {pin}")
-    pin.irq(handler=None)
-    event_motion_sensed.set()
-    last_motion = time.ticks_ms()
-    print("pressed")
-    time.sleep_ms(1000)
-    print("timer")
-    pin.irq(button_int,trigger=Pin.IRQ_RISING)
-    
-pir = Pin(0,Pin.IN,Pin.PULL_DOWN)
-pir.irq(button_int,trigger=Pin.IRQ_RISING)
+last_motion = - 30*60*1000
+last_pump_run = - 30*60*1000
 
 temp_sensor = ds18x20_util(4)
 
@@ -79,24 +60,62 @@ async def check_temperature():
         #print(f"Temp: {temperature}")
         await asyncio.sleep(5)
 
+async def motion_poll():
+    global event_motion_sensed,last_motion #led,led_value,event_weather_updated
+    await asyncio.sleep(10)
+    print("PIR Init")
+    pir = Pin(0,Pin.IN)#,Pin.PULL_DOWN)
+    #pir.irq(button_int,trigger=Pin.IRQ_RISING)
+    while True:
+        if pir.value():
+            event_motion_sensed.set()
+            print("Sensed")
+            led_motion(True)
+            last_motion = time.ticks_ms()
+            await asyncio.sleep(5)
+            led_motion(False)
+            await asyncio.sleep(55)
+            
+            #event_motion_sensed.clear()
+        else:
+            pass
+            #print("Not sensed")
+        await asyncio.sleep_ms(500)    
+        #await event_wifi_connected.wait()
+
 
 async def start_pump():
-    global last_pump_run
+    global last_pump_run, event_motion_sensed,last_motion
     while True:
+        #print("pump loop")
         if time.ticks_diff(time.ticks_ms(), last_pump_run) > _PUMP_SLEEP_TIME:
-            led(True)
-            print("Last pump run timer elapsed")
+            #print(f"Await event_motion_sensed {event_motion_sensed.state}")
+            await event_motion_sensed.wait()
+            event_motion_sensed.clear()
+            if not (7 <= time.localtime()[3] <= 23):
+                continue
+                #led(True)
+            #print(f"Last pump run timer elapsed, check {time.ticks_diff(time.ticks_ms(), last_motion)} <{_MOTION_SLEEP_TIME}")
             if time.ticks_diff(time.ticks_ms(), last_motion) <_MOTION_SLEEP_TIME:
+                #print("Run pump")
+                led(True)
+                pump(True)
+                await asyncio.sleep(90)
                 led(False)
-                print("Run pump")
-                led2(True)
-                await asyncio.sleep(60)
-                led2(False)
+                pump(False)
                 last_pump_run = time.ticks_ms()
             else:
-                print(f"Motion {int((time.ticks_diff(time.ticks_ms(), last_motion))/1000)} s")
+                pass
+                #print(f"Motion {int((time.ticks_diff(time.ticks_ms(), last_motion))/1000)} s")
+            await asyncio.sleep_ms(1000)
+                #led(False)
+            
+        else:
+            pass
+            #print(f"Pump sleep time not elapsed: {time.ticks_diff(time.ticks_ms(), last_pump_run)} < {_PUMP_SLEEP_TIME}")
+        #event_sleep_ready.set()
+        await asyncio.sleep(5)
         
-        await asyncio.sleep(30)
         
         
 
@@ -154,7 +173,7 @@ client.set_callback(mqtt_cb)
 async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
     global event_request_ready
     my_print(f"mqtt_send_temp, on demand= {on_demand}")
-    _lastmotion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
+    _last_motion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
     if on_demand:
         if not event_mq_connected.state:
             my_print("Cannot send, not connected to mq")
@@ -187,12 +206,13 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             await event_wifi_connected.wait()
             await event_mq_connected.wait()
             await event_request_ready.wait()
+            _last_motion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
             try:
                 my_print(f"Send mqtt message on {my_machine.topic_send}")
                 _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0}
                 #client.ping()
                 await asyncio.sleep_ms(100)
-                client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 1,retain=True)
+                client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
                 await asyncio.sleep_ms(50)
                 _output = None
                 event_request_ready.set()
@@ -268,7 +288,7 @@ async def mq_check_messages(client,time=5):
                 #client.check_msg()
                 await client.a_wait_msg(queue)
                 wdt.feed()
-                my_print("client checked msg")
+                #my_print("client checked msg")
                 
         except Exception as ex:
             my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
@@ -346,18 +366,18 @@ async def connect_mq(event_request_ready):
         
 
 async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready):
-    global led,led_value,event_weather_updated
+    global led,led_value
     while True:
         await event_wifi_connected.wait()
         await event_mq_connected.wait()
         await event_sleep_ready.wait()
-        if not event_weather_updated.state:
-            await asyncio.sleep(3)
+        #if not event_weather_updated.state:
+        #    await asyncio.sleep(3)
         #my_print("sleep")
         #time.sleep_ms(50)
-        lightsleep(10000)
+        #lightsleep(1000)
         event_sleep_ready.clear()
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.1)
         
 
     
@@ -374,13 +394,32 @@ async def mq_ping(client):
             event_request_ready.clear()
             client.ping()
             event_request_ready.set()
+            event_mq_connected.set()
         except:
             my_print("MQ ping exception")
             event_request_ready.set()
             event_mq_connected.clear()
         await asyncio.sleep(30)
- 
- 
+
+
+
+async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready):
+    global led,led_value,event_weather_updated
+    while True:
+        await event_wifi_connected.wait()
+        await event_mq_connected.wait()
+        await event_sleep_ready.wait()
+#        if not event_weather_updated.state:
+#            await asyncio.sleep(3)
+        #my_print("sleep")
+        #time.sleep_ms(50)
+        #await asyncio.sleep(3)
+        #lightsleep(2000)
+        await asyncio.sleep(0)
+        event_sleep_ready.clear()
+        #await asyncio.sleep(5)
+
+
 async def main():
     t_check_temperature = asyncio.create_task(check_temperature())
     t_start_pump = asyncio.create_task(start_pump())
@@ -399,22 +438,27 @@ async def main():
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False)) #send discovery on interval#
     t_mq_check_messages = asyncio.create_task(mq_check_messages(client,10))
     t_mq_ping = asyncio.create_task(mq_ping(client))
-    
-    
+#    t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
+    t_motion_poll = asyncio.create_task(motion_poll())
+
     while True:
-        try:
+        if True: #try:
             await asyncio.sleep(5)
             #gc.collect()
             #await mqtt_send_temp(client,True)
             
-            continue
-            if t_program_sleep.done():
+            if t_start_pump.done():
+                my_print("start pump done")
+                t_start_pump = asyncio.create_task(start_pump())
+            
+            #continue
+            if t_mq_ping.done():
                 my_print("t_mq_ping is done")
                 t_mq_ping=None
                 #gc.collect()
                 t_mq_ping = asyncio.create_task(mq_ping(client))
         
-            if t_program_sleep.done():
+            if False: # t_program_sleep.done():
                 my_print("t_sleep_connection is done")
                 t_sleep=None
                 #gc.collect()
@@ -431,7 +475,13 @@ async def main():
                 t_process_queue=None
                 #gc.collect()
                 t_process_queue = asyncio.create_task(process_queue(queue))
-            
+
+#            if t_program_sleep.done():
+#                my_print("t_sleep_connection is done")
+#                t_sleep=None
+                #gc.collect()
+#                t_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
+
             
             if False: #t_mq_connection.done():
                 my_print("t_mq_connection is done")
@@ -453,32 +503,27 @@ async def main():
                 gc.collect()
                 t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,False))
             
-            if t_oled_update.done():
-                my_print("oled refresh is done")
-                t_oled_update=None
-                gc.collect()
-                t_oled_update = asyncio.create_task(heartbeat_oled(wifi,1))
              
                 
-        except Exception as ex:
-            my_print(f"Catch from main loop: {ex}")
+        #except Exception as ex:
+        #    my_print(f"Catch from main loop: {ex}")
 
-            await asyncio.sleep(5)
-            my_print(f"Catch from main loop after wait: {ex}")
+        #    await asyncio.sleep(5)
+        #    my_print(f"Catch from main loop after wait: {ex}")
         await asyncio.sleep(10)
         #loop.run_forever()
     #asyncio.run(heartbeat_oled(client))
        
-try:
+if True: #try:
     my_print("Async call main")
     asyncio.run(main())
     #loop = asyncio.get_event_loop()
     #loop.run_forever()
     #asyncio.run(heartbeat_oled(client))
-except Exception as ex:
-    my_print(f"Catch: {ex}")
+#except Exception as ex:
+#    my_print(f"Catch: {ex}")
 
-finally:
+#finally:
     my_print(f"finally: ")
     asyncio.new_event_loop()
 
