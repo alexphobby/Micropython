@@ -48,6 +48,7 @@ wifi = CONNECTWIFI_AS(event_wifi_connected,my_machine.device)
 ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready,event_ntp_updated)
 
 last_motion = - 30*60*1000
+last_motion_tuple = time.localtime()
 last_pump_run = - 30*60*1000
 
 temp_sensor = ds18x20_util(4)
@@ -61,7 +62,7 @@ async def check_temperature():
         await asyncio.sleep(5)
 
 async def motion_poll():
-    global event_motion_sensed,last_motion #led,led_value,event_weather_updated
+    global event_motion_sensed,last_motion,last_motion_tuple #led,led_value,event_weather_updated
     await asyncio.sleep(10)
     print("PIR Init")
     pir = Pin(0,Pin.IN)#,Pin.PULL_DOWN)
@@ -72,6 +73,8 @@ async def motion_poll():
             print("Sensed")
             led_motion(True)
             last_motion = time.ticks_ms()
+            last_motion_tuple = time.localtime()
+            print(last_motion)
             await asyncio.sleep(5)
             led_motion(False)
             await asyncio.sleep(55)
@@ -171,9 +174,9 @@ client.set_callback(mqtt_cb)
 #oled_write.printstring(f"Loading...")
 #oled.show()
 async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
-    global event_request_ready
+    global event_request_ready,last_motion_tuple
     my_print(f"mqtt_send_temp, on demand= {on_demand}")
-    _last_motion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
+    _last_motion = time.mktime(last_motion_tuple[0:3] + (last_motion_tuple[3] - 2,) + last_motion_tuple[4:6] + (0,0))+946684800
     if on_demand:
         if not event_mq_connected.state:
             my_print("Cannot send, not connected to mq")
@@ -206,7 +209,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             await event_wifi_connected.wait()
             await event_mq_connected.wait()
             await event_request_ready.wait()
-            _last_motion = time.mktime(time.localtime()[0:3] + (time.localtime()[3] - 2,) + time.localtime()[4:6] + (0,0))+946684800
+            _last_motion = time.mktime(last_motion_tuple[0:3] + (last_motion_tuple[3] - 2,) + last_motion_tuple[4:6] + (0,0))+946684800
             try:
                 my_print(f"Send mqtt message on {my_machine.topic_send}")
                 _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0}
@@ -436,7 +439,7 @@ async def main():
     #t_oled_update = asyncio.create_task(heartbeat_oled(wifi))
     #t_update_contrast = asyncio.create_task(update_contrast())
     t_mqtt_discovery = asyncio.create_task(mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False)) #send discovery on interval#
-    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,10))
+    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,2))
     t_mq_ping = asyncio.create_task(mq_ping(client))
 #    t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
     t_motion_poll = asyncio.create_task(motion_poll())
