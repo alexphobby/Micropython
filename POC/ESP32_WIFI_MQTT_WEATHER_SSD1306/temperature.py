@@ -63,14 +63,16 @@ map_ambient_light_oled = MAP(0,149,5,128)
 
 
 def mqttClient(ssl_enabled = False,name="pico"):
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.verify_mode = ssl.CERT_NONE
     client = MQTTQueue(client_id=b"" + my_machine.name,
     server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
     port=8883,
     user=b"apanoiu_devices",
     password=b"Mqtt741852",
     keepalive=50000,
-    ssl=ssl_enabled,
-    ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
+    ssl=ssl_context
+    #ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
     )
 
     #client.connect()

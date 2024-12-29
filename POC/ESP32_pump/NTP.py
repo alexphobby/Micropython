@@ -4,9 +4,7 @@ import json
 import asyncio
 import requests
 from machine import RTC
-import gc
-
-#gc.enable()
+import secrets
 
 class NTP:
     EPOCH_OFFSET = 0
@@ -67,15 +65,14 @@ class NTP:
                 
     async def update_timezone(self):
             err=True
-            retry_count = 50
+            retry_count = 2
             while err and retry_count > 0:
                 try:
                     print("Get timezone")
                     self.event_request_ready.clear()
-                    gc.collect()
-                    await asyncio.sleep(30)
                     #res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()
-                    self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
+                    #self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
+                    self.UTC_OFFSET = int(requests.get(f"http://api.timezonedb.com/v2.1/get-time-zone?key={secrets.TIMEZONEDB_APIKEY}&format=json&by=zone&zone=Europe/Bucharest").json()["gmtOffset"]/3600)
                     self.event_request_ready.set()
                     result = True
                     print(f"UTC OFFSET {self.UTC_OFFSET}")

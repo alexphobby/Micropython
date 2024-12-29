@@ -3,12 +3,6 @@ from sys import platform
 from gc import collect
 
 from machine import Pin,I2C
-
-#Enable discovery of devices
-temp_sensor_enabled = True
-oled_enabled = True
-light_sensor_enabled = True
-
 i2c = ""
 known_devices = [["BH1750","Light sensor",0x23,35],["HDC1080","Temp and humidity",0x40,64],["BMP280","Temp, humidity and pressure",0x76,118],["VL53L0X","LIDAR",0x29,41],["SSD1306","OLED display",0x3C,60]] #name,hexa,dec
 found_devices = []
@@ -16,7 +10,6 @@ if True: #try:
     if (platform == "esp32"):
         print("ESP32 - I2C on pins: scl=Pin(3),sda=Pin(4)")
         i2c = I2C(0,scl=Pin(3),sda=Pin(4),freq=800000)
-        print("I2c init done")
     else:
         print("non ESP32")
         i2c = I2C(0,scl=Pin(1),sda=Pin(0))
@@ -36,12 +29,12 @@ if True: #try:
 #except:
 #    print("no i2c")
 
+temp_sensor_enabled = False
 
 if "BMP280" in found_devices and temp_sensor_enabled:
     #print("BMP280")
     from bmp280_util import bmp280_util
     temp_sensor = bmp280_util(i2c)
-    print(f"Temperature: {temp_sensor.temperature()}")
 elif "HDC1080" in found_devices and temp_sensor_enabled:
     #print("HDC1080")
     from hdc1080_util import hdc1080_util
@@ -53,6 +46,7 @@ else:
 oled = None
 oled_write = None
 
+oled_enabled = True
 
 if oled_enabled is True and "SSD1306" in found_devices:
     #print("SH1106")
@@ -61,15 +55,14 @@ if oled_enabled is True and "SSD1306" in found_devices:
     import consolas12,consolas10
     oled = SH1106_I2C(128, 64, i2c,rotate=0) #180
     oled.contrast(2)
-    oled_write = Writer(oled, consolas12) #,verbose=False)18 caractere 7 px/char
+    oled_write = Writer(oled, consolas10) #,verbose=False)18 caractere 7 px/char
     oled_write.set_textpos(oled,0,0)
     oled_write.printstring(f"Loading...")
     oled.show()
 
-
+light_sensor_enabled = False
 
 if "BH1750" in found_devices and light_sensor_enabled:
-    print("found BH1750")
     from bh1750_util import *
     light_sensor = bh1750_util(i2c)
 else:

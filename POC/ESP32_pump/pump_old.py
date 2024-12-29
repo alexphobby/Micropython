@@ -2,18 +2,18 @@ import gc
 #gc.enable()
 from i2c_init import *
 #oled.poweroff()
-from ds18x20_util import *
+
+#from ds18x20_util import *
 
 import time
 import asyncio
-#from WEATHER import *
+from WEATHER import *
 from NTP import *
 #from dim import Dim
 from MACHINES import *
 from machine import Signal,PWM,Pin,sleep,WDT,lightsleep
 from asyncio import Event
 from Queue import Queue
-import ssl
 queue = Queue(5)
 event_wifi_connected = Event()
 event_mq_connected = Event()
@@ -23,8 +23,8 @@ event_request_ready = Event()
 event_request_ready.set()
 event_ntp_updated = Event()
 
-wdt = WDT(timeout=40000)
-wdt.feed()
+#wdt = WDT(timeout=40000)
+#wdt.feed()
 
 event_motion_sensed = Event()
 #dimmer = Dim(10,fade_time_ms = 60)
@@ -52,22 +52,23 @@ last_motion = - 30*60*1000
 last_motion_tuple = time.localtime()
 last_pump_run = - 30*60*1000
 
+from ds18x20_util import *
 temp_sensor = ds18x20_util(4)
 
 temperature = -100
 async def check_temperature():
     global temperature
     while True:
-        temperature = temp_sensor.temperature()
+        if temp_sensor.enabled:
+            temperature = temp_sensor.temperature()
         #print(f"Temp: {temperature}")
         await asyncio.sleep(5)
 
 async def motion_poll():
     global event_motion_sensed,last_motion,last_motion_tuple #led,led_value,event_weather_updated
-    await asyncio.sleep(5)
+    await asyncio.sleep(10)
     print("PIR Init")
-    pir = Pin(0,Pin.IN,Pin.PULL_DOWN)
-    await asyncio.sleep(1)
+    pir = Pin(0,Pin.IN)#,Pin.PULL_DOWN)
     #pir.irq(button_int,trigger=Pin.IRQ_RISING)
     while True:
         if pir.value():
@@ -125,22 +126,45 @@ async def start_pump():
         
 
 def mqttClient(ssl_enabled = False,name="pico"):
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ssl_context.verify_mode = ssl.CERT_NONE
-
-    client = MQTTQueue(client_id=b"" + my_machine.name,
+    client = MQTTQueue(client_id=b"" + name,
     server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
     port=8883,
     user=b"apanoiu_devices",
     password=b"Mqtt741852",
     keepalive=50000,
-    ssl=ssl_context
+    ssl=ssl_enabled
+                       #,
     #ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
     )
 
     #client.connect()
     return client
 
+def sub_cb(topic, msg):
+    print((topic, msg))
+    
+from umqtt.simple import MQTTClient
+
+import ssl
+def mqClient(ssl_enabled = True,name="pico"):
+    
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.verify_mode = ssl.CERT_NONE
+    client = MQTTClient(client_id=b"" + name,
+    server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
+    port=8883,
+    user=b"apanoiu_devices",
+    password=b"Mqtt741852",
+    keepalive=50000,
+    ssl=ssl_context
+                       #,
+    #ssl_params={'server_hostname':'fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud'}
+    )
+    #client.set_callback(sub_cb)
+    
+
+    #client.connect()
+    return client
 
 dim_value = 0
 def dim(strValue):
@@ -164,8 +188,10 @@ def mqtt_cb(topic,msg):
         
 
 #from umqtt.simple import MQTTClient
-from mqtt_queue import MQTTQueue
-client = mqttClient(True,my_machine.device)
+#from mqtt_queue import MQTTQueue
+#client = mqttClient(True,my_machine.device)
+client = mqClient(True,my_machine.device)
+
 client.set_callback(mqtt_cb)
 
 
@@ -187,9 +213,13 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             my_print("Cannot send, not connected to mq")
             return
         try:
-            
+            if light_sensor is None:
+                _light = 0
+            else:
+                _light = light_sensor.light()
+                
             my_print(f"Send on demand message on {my_machine.topic_send}")
-            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(_light or -100),"dim":0,"lastmotion":_last_motion,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
             event_request_ready.clear()
             #my_print("ping")
             #client.ping()
@@ -237,10 +267,10 @@ tasks = []
 def sayhello(strValue):
     my_print(f"Hello {strValue}")
 
-async def check_queue(queue):
-    while True:
-        #my_print(queue.qsize())
-        await asyncio.sleep(5)
+#async def check_queue(queue):
+#    while True:
+#        #my_print(queue.qsize())
+#        await asyncio.sleep(5)
     
 async def process_queue(queue):
     global client,event_wifi_connected,event_mq_connected
@@ -291,10 +321,10 @@ async def mq_check_messages(client,time=5):
             #client.ping()
             #my_print("MQ Check msg")
             if wifi.is_connected():
-                await asyncio.sleep(0.2)
+                #await asyncio.sleep(0.2)
                 #client.ping()
-                #client.check_msg()
-                await client.a_wait_msg(queue)
+                client.check_msg()
+                #await client.a_wait_msg(queue)
                 wdt.feed()
                 #my_print("client checked msg")
                 
@@ -350,7 +380,8 @@ async def connect_mq(event_request_ready):
         event_sleep_ready.clear()
         await asyncio.sleep(2)
         #my_print("MQ connection - wifi ok")
-        try:
+        #try:
+        if True:
             #await event_request_ready.wait()
             my_print("MQ connection - connect")
             gc.collect()
@@ -366,9 +397,9 @@ async def connect_mq(event_request_ready):
             event_mq_connected.set()
             event_sleep_ready.set()
             
-        except Exception as ex:
-            my_print(f"Err connecting to MQ, {ex}")
-            event_mq_connected.clear()
+        #except Exception as ex:
+        #    my_print(f"Err connecting to MQ, {ex}")
+        #    event_mq_connected.clear()
         event_request_ready.set()
         await asyncio.sleep(2) 
         
@@ -432,13 +463,19 @@ async def main():
     t_check_temperature = asyncio.create_task(check_temperature())
     t_start_pump = asyncio.create_task(start_pump())
     await wifi.check_and_connect()
-    asyncio.create_task(check_queue(queue))
+    
+    #asyncio.create_task(check_queue(queue))
     
     t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi)) #not handled
     t_ntp_update = asyncio.create_task(ntp.update_ntp())
 
     t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
+    
+    
     t_process_queue = asyncio.create_task(process_queue(queue))
+    
+    
+    
     #t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
     
     #t_oled_update = asyncio.create_task(heartbeat_oled(wifi))

@@ -94,26 +94,6 @@ class MACHINES:
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity"]
 
-        elif self.guid == "34b7da52f800":
-            self.device = "a36_esp32s3_1"
-            self.name = "S3_1"
-            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
-            self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity"]
-
-        elif self.guid == "34b7da52f074":
-            self.device = "a36_esp32s3_2"
-            self.name = "S3_2"
-            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
-            self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity"]
-        elif self.guid == "ecda3bbd88e8":
-            self.device = "a36_esp32s3_2"
-            self.name = "C3_Test1"
-            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
-            self.devicetype = "thermometer"
-            self.features = []
-            
 
         else:
             print(f"Machine {self.guid} not defined")

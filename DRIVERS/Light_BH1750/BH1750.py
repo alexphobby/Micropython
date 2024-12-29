@@ -54,5 +54,5 @@ class BH1750():
         sleep_ms(24 if mode in (0x13, 0x23) else 180)
         data = self.bus.readfrom(self.addr, 2)
         factor = 2.0 if mode in (0x11, 0x21) else 1.0
-        print(f"{data[0]}  - {data[1]}")
+        #print(f"{data[0]}  - {data[1]}")
         return (data[0]<<8 | data[1]) / (1.2 * factor)

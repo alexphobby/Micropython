@@ -22,17 +22,16 @@ class ds18x20_util:
             self.enabled = False
 
     def temperature(self):
+        if not self.enabled:
+            return "-100"
         try:
-            if self.enabled:
-                self.ds.convert_temp()
-                time.sleep_ms(750)
-                _temperature = self.ds.read_temp(self.rom)
-            else:
-                _temperature = -100
-                
+            self.ds.convert_temp()
+            time.sleep_ms(750)
+            _temperature = self.ds.read_temp(self.rom)
+            
         except Exception as ex:
             print(f"temp error: {ex}")
-            _temperature = -100
+            _temperature = 0
             
         return _temperature
     def humidity(self):

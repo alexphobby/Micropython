@@ -19,8 +19,6 @@ from i2c_init import *
 from WEATHER import *
 from NTP import *
 
-from neopixel_util import *
-
 from asyncio import Event
 from Queue import Queue
 queue = Queue(5)
@@ -54,7 +52,7 @@ from dim import Dim
 from brightness_map_1024 import brightness_map_1024 as brightness_map
 from pid import PID
 
-led_pin = 20
+led_pin = 21
 
 motion_pin = 5
 ir_pin = 16
@@ -128,7 +126,7 @@ remote_button = ""
 last_remote_button_time = time.ticks_ms()
 
 async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
-    global event_request_ready
+    global event_request_ready,dimmer
     my_print(f"mqtt_send_temp, on demand= {on_demand}")
     if on_demand:
         if not event_mq_connected.state:
@@ -183,12 +181,7 @@ async def process_queue(queue):
     my_print("MQ process_queue initialised")
     while True:
         _msg = await queue.get()
-        event_sleep_ready.clear()
         my_print(f"Queue msg: {_msg}")
-        led("blue")
-        await asyncio.sleep_ms(100)
-        led("off")
-
         if _msg == "discovery":
             my_print("Send discovery result")
             await mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True)
@@ -228,11 +221,11 @@ def setAutoBrightness(strValue):
         _setpoint = read_light()
         pid.set_point = _setpoint
         print(f"Dim setpoint = {_setpoint}")
-        #timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
+        timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
         #pid.update()
     else:
         autoBrightness = False
-        #timer_pid.deinit()
+        timer_pid.deinit()
     #time.sleep(2)
     #discovery("setAutobrightness")
 
@@ -252,19 +245,19 @@ def pressed_button(button):
     reject_repeat = ["*","#","ok"]
     #print(_button == last_remote_button)
     #print(_button in reject_repeat)
-    
+    print(f'Button: {_button}')
     
     if _button == last_remote_button and _button in reject_repeat and (time.ticks_ms() - last_remote_button_time) < threshold_repeat:
         #print("anti repeat")
         last_remote_button_time = time.ticks_ms()
-        #print("break")
         return
     #print(_button,last_remote_button, (time.ticks_ms() - last_remote_button_time))
     if _button == "up":
         brightness += 5
-                
+        dimmer.dimToPercent(dimmer.getPercent() + 5)
     elif _button == "down" :
         brightness -= 5
+        dimmer.dimToPercent(dimmer.getPercent() - 5)
     elif _button == "*":
         print("toggle brightness, initial status: {}".format(auto_brightness))
         last_remote_button_time = time.ticks_ms()
@@ -274,6 +267,7 @@ def pressed_button(button):
             
         #else:
             #enable_auto_brightness(True)
+        
         return
     else:
         try:
@@ -427,7 +421,7 @@ def update_pid(timer):
 from micropython import const  
 pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
 
-timer_pid = Timer(0)
+timer_pid = Timer()
 #timer_pid.init(period=50, mode=Timer.PERIODIC, callback = update_pid)
 
 
@@ -670,7 +664,7 @@ import random
 
 
 
-#adc = ADC(ambient_light_pin)
+adc = ADC(ambient_light_pin)
 
 
 
@@ -692,27 +686,26 @@ import random
 
 
 #led = Pin(25,Pin.OUT)
-#led = Pin('LED',Pin.OUT)
+led = Pin('LED',Pin.OUT)
 #led12 = Pin(15,Pin.OUT)
 #led12.on()
 
 motion = Pin(motion_pin, Pin.IN,Pin.PULL_DOWN)
 
-#timer = Timer()
-#timer_blink = Timer()
-#timer_check_messages = Timer()
+timer = Timer()
+timer_blink = Timer()
+timer_check_messages = Timer()
 
 #timer_test.init(period=5000, mode=Timer.PERIODIC, callback=lambda t:timerTest)   # Timer.ONE_SHOT . Period in m
 
 def blinkOnboardLed(timer):
-    #global led
-    #led.toggle()
+    global led
+    led.toggle()
     #if abs(dimSetPoint - int(adc.read_u16()* 233 / 65000)) > 3:
-    pass
 
 
 
-#timer_blink.init(period=1000, mode=Timer.PERIODIC, callback = blinkOnboardLed)
+timer_blink.init(period=1000, mode=Timer.PERIODIC, callback = blinkOnboardLed)
 
 time.sleep(0.2)
 
@@ -732,7 +725,7 @@ def motion_sensed(pin):
     
     if time.time() - lastMotion < _MOTIONTHRESHOLDSECONDS:
         
-        #timer.init(period=10*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
+        timer.init(period=10*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
         print("motion")
     
     #time.sleep(5)
@@ -827,15 +820,14 @@ async def mq_check_messages(client,time=5):
             if wifi.is_connected():
                 #await asyncio.sleep(0.2)
                 #client.check_msg()
-                if await client.a_wait_msg(queue):
-                    await asyncio.sleep_ms(100)
+                await client.a_wait_msg(queue)
+                await asyncio.sleep(0)
                 counter += 1
                 if counter%30 == 0:
-                    print("send ping")
+                    #print("send ping")
                     client.ping()
                 
-                print(counter)
-                #lightsleep(1000)
+                #print(counter)
                 #my_print("client checked msg")
                 
         except Exception as ex:
@@ -889,35 +881,17 @@ async def print_pulse_in():
         print(f"async def read_pulse_in()={pulse_in}") # , pulses: {read_pulses[0]},{read_pulses[1]},{read_pulses[2]},{read_pulses[3]},{read_pulses[4]},{read_pulses[5]}")
         dimmer.dimToPercent(pulse_in)
         #await asyncio.sleep(1)
-  
-async def program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready):
-    global led,led_value
-    while True:
-        await event_wifi_connected.wait()
-        await event_mq_connected.wait()
-        await event_sleep_ready.wait()
         
-        machine.lightsleep(10000)
-        event_sleep_ready.clear()
-        led("red")
-        await asyncio.sleep_ms(0)
-        led("off")
-        await asyncio.sleep_ms(100)
-        
-        
-
-
 
 async def main():
     await wifi.check_and_connect()
     t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi)) #not handled
     t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
-    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,2))
-    t_program_sleep = asyncio.create_task(program_sleep(event_wifi_connected,event_mq_connected,event_sleep_ready))
+    t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
     t_process_queue = asyncio.create_task(process_queue(queue))
-    #t_read_pulse_in = asyncio.create_task(read_pulse_in())
+    t_read_pulse_in = asyncio.create_task(read_pulse_in())
     
-    #t_print_pulse_in = asyncio.create_task(print_pulse_in())
+    t_print_pulse_in = asyncio.create_task(print_pulse_in())
 
     while True:
         await asyncio.sleep(10)
@@ -937,7 +911,7 @@ async def main():
             t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
 
         if t_mq_check_messages.done():
-            t_mq_check_messages = asyncio.create_task(mq_check_messages(client,2))
+            t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
     
         if t_process_queue.done():
             t_process_queue = asyncio.create_task(process_queue(queue))

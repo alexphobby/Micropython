@@ -4,7 +4,7 @@ import json
 import asyncio
 import requests
 from machine import RTC
-import gc
+import secrets
 
 class NTP:
     EPOCH_OFFSET = 0
@@ -52,7 +52,6 @@ class NTP:
                             retry_count-=1
                             self.event_request_ready.set()
                             print(f"err ntp, retry count: {retry_count}, Err: {ex}")
-                            gc.collect()
                             await asyncio.sleep(0.6)
                     await asyncio.sleep(50)
                         #await asyncio.sleep_ms(10)
@@ -66,13 +65,14 @@ class NTP:
                 
     async def update_timezone(self):
             err=True
-            retry_count = 50
+            retry_count = 2
             while err and retry_count > 0:
                 try:
                     print("Get timezone")
                     self.event_request_ready.clear()
                     #res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()
-                    self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
+                    #self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
+                    self.UTC_OFFSET = int(requests.get(f"http://api.timezonedb.com/v2.1/get-time-zone?key={secrets.TIMEZONEDB_APIKEY}&format=json&by=zone&zone=Europe/Bucharest").json()["gmtOffset"]/3600)
                     self.event_request_ready.set()
                     result = True
                     print(f"UTC OFFSET {self.UTC_OFFSET}")
@@ -80,7 +80,7 @@ class NTP:
                         _rtc = RTC()
                         print(f"Before UTC: {_rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
                         _tm = time.localtime()
-                        _tm = _tm[0:3] + (self.UTC_OFFSET,_tm[3]+ self.UTC_OFFSET,) + _tm[4:6] + (0,)
+                        _tm = _tm[0:3] + (0,_tm[3]+ self.UTC_OFFSET,) + _tm[4:6] + (0,)
                         print(_tm)
                         
                         _rtc.datetime(_tm)
