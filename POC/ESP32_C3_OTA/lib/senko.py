@@ -100,8 +100,17 @@ class Senko:
         return changes
 
     def fetch(self):
-        pass
-    
+        """Check if newer version is available.
+
+
+        Returns:
+            True - if is, False - if not.
+        """
+        if not self._check_all():
+            return False
+        else:
+            return True
+
     def update(self):
         """Replace all changed files with newer one.
 

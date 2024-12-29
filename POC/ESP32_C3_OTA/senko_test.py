@@ -14,8 +14,8 @@ github_folder=my_machine.github_folder
 
 from senko import Senko
 OTA = Senko(user="alexphobby",branch = "main", repo="Micropython", headers =  {'User-Agent': 'alexphobby'}, working_dir=my_machine.github_folder, files=["*"])
-OTA.update()
+updated = OTA.update()
 
-if OTA.update():
+if updated:
     print("Updated to the latest version! Rebooting...")
     machine.reset()
