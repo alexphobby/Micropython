@@ -3,9 +3,9 @@ import uhashlib
 import gc
 
 class Senko:
-    raw = "http://raw.githubusercontent.com"
-    github = "http://github.com"
-
+    #raw = "http://raw.githubusercontent.com"
+    github = "https://api.github.com/repos" #/alexphobby/Micropython/contents/POC/ESP32_C3_OTA/lib"
+    github_raw = 'https://raw.githubusercontent.com' #/alexphobby/Micropython/main/POC/ESP32_C3_OTA/senko_test.py'
     def __init__(self, user, repo, url=None, branch="master", working_dir="app", files=["boot.py", "main.py"] , all_folder=False, headers={}):
         self.files = files
         self.all_folder = all_folder
@@ -20,8 +20,10 @@ class Senko:
             files (list): Files included in OTA update.
             headers (list, optional): Headers for urequests.
         """
-        self.base_url = "{}/{}/{}".format(self.raw, user, repo) if user else url.replace(self.github, self.raw)
-        self.url = url if url is not None else "{}/{}/{}".format(self.base_url, branch, working_dir)
+        self.url = f'{self.github}/{user}/{repo}/contents/{working_dir}'
+        self.url_raw = f'{self.github_raw}/{user}/{repo}/main/{working_dir}'
+        #self.base_url = "{}/{}/{}".format(self.raw, user, repo) if user else url.replace(self.github, self.raw)
+        #self.url = url if url is not None else "{}/{}/{}".format(self.base_url, branch, working_dir)
         self.headers = headers
         
         if "*" in files:
@@ -45,28 +47,45 @@ class Senko:
 
     def _get_file(self, url):
         print(f"url: {url}")
-        payload = requests.get(url, headers=self.headers)
+        payload = requests.get(url, headers={'User-Agent': 'alexphobby'})
         code = payload.status_code
+        #print(f'_get_file code {code}, content: {payload.text}')
 
         if code == 200:
+            #print(f"Got: {payload.text}")
             return payload.text
         else:
+            print(f"Not ok, got http code: {code}")
             return None
 
     def _check_all(self):
         changes = []
         
         if self.all_folder:
-            res = requests.get("http://api.github.com/repos/alexphobby/Micropython/contents/POC/ESP32_AS_MQTT_WEATHER_SSD1306",headers = self.headers).json()
-            for obj in res:
-                print(f"Found file {obj['name']} in repo")
-                self.files.append(obj['name'])
+            res = requests.get(self.url,headers = self.headers)
+            if res.status_code != 200:
+                print(f"Error loading github - {res.text}")
+                return
+            self.files = []
+            for obj in res.json():
+                if obj['type'] == 'dir':
+                    print(f"Found folder {obj['name']} in repo")
+                    _res = requests.get(f'{self.url}/{obj['name']}',headers = self.headers).json()
+                    print(_res)
+                    for _obj in _res:
+                        if _obj['type'] == 'file':
+                            print(f"Found file {_obj['name']} in {obj['name']}")
+                            self.files.append(f'{obj['name']}/{_obj['name']}')
+                else:
+                    print(f"Found file {obj['name']} in repo")
+                    self.files.append(obj['name'])
             res =""
             gc.collect()
 
         for file in self.files:
             print(f"Local check file: {file}")
-            latest_version = self._get_file(self.url + "/" + file)
+            latest_version = self._get_file(self.url_raw + "/" + file)
+
             if latest_version is None:
                 continue
 
@@ -83,6 +102,7 @@ class Senko:
 
     def fetch(self):
         """Check if newer version is available.
+
 
         Returns:
             True - if is, False - if not.
@@ -102,7 +122,8 @@ class Senko:
 
         for file in changes:
             with open(file, "w") as local_file:
-                local_file.write(self._get_file(self.url + "/" + file))
+                print(f'Write {file}')
+                local_file.write(self._get_file(self.url_raw + "/" + file))
 
         if changes:
             return True
