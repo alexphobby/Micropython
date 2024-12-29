@@ -71,7 +71,6 @@ class Senko:
                 if obj['type'] == 'dir':
                     print(f"Found folder {obj['name']} in repo")
                     _res = requests.get(f'{self.url}/{obj['name']}',headers = self.headers).json()
-                    print(_res)
                     for _obj in _res:
                         if _obj['type'] == 'file':
                             print(f"Found file {_obj['name']} in {obj['name']}")
