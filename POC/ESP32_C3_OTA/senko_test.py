@@ -1,11 +1,13 @@
+#v_local
 #from i2c_init import *
 
 
 #from mqtt_as_init import *
 #test()
 
-#from CONNECTWIFI import *
-#wan = CONNECTWIFI()
+from CONNECTWIFI import *
+wan = CONNECTWIFI()
+
 from MACHINES import *
 my_machine = MACHINES()
 github_folder=my_machine.github_folder
