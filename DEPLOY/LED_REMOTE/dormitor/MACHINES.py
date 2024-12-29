@@ -98,6 +98,13 @@ class MACHINES:
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity"]
 
+        elif self.guid == "ecda3bbd787c":
+            self.device = "esp32c3_test"
+            self.name = "Box_3"
+            self.github_folder = "POC/ESP32_C3_OTA"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
+
 
         else:
             print(f"Machine {self.guid} not defined")
