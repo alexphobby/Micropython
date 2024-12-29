@@ -71,7 +71,6 @@ class Senko:
                 if obj['type'] == 'dir':
                     print(f"Found folder {obj['name']} in repo")
                     _res = requests.get(f'{self.url}/{obj['name']}',headers = self.headers).json()
-                    print(_res)
                     for _obj in _res:
                         if _obj['type'] == 'file':
                             print(f"Found file {_obj['name']} in {obj['name']}")
@@ -121,8 +120,9 @@ class Senko:
         changes = self._check_all()
 
         for file in changes:
+            print(f'Write {file}')
             with open(file, "w") as local_file:
-                print(f'Write {file}')
+                
                 local_file.write(self._get_file(self.url_raw + "/" + file))
 
         if changes:
