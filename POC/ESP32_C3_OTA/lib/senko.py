@@ -120,8 +120,9 @@ class Senko:
         changes = self._check_all()
 
         for file in changes:
+            print(f'Write {file}')
             with open(file, "w") as local_file:
-                print(f'Write {file}')
+                
                 local_file.write(self._get_file(self.url_raw + "/" + file))
 
         if changes:
