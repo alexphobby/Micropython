@@ -24,7 +24,8 @@ class Senko:
         self.url_raw = f'{self.github_raw}/{user}/{repo}/main/{working_dir}'
         #self.base_url = "{}/{}/{}".format(self.raw, user, repo) if user else url.replace(self.github, self.raw)
         #self.url = url if url is not None else "{}/{}/{}".format(self.base_url, branch, working_dir)
-        self.headers = headers
+        
+        self.headers = headers if len(headers > 0) else {'User-Agent': 'alexphobby'}
         
         if "*" in files:
             print("Download all folder")
