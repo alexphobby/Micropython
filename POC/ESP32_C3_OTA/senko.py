@@ -1,7 +1,7 @@
 import requests
 import uhashlib
 import gc
-import os
+
 class Senko:
     #raw = "http://raw.githubusercontent.com"
     github = "https://api.github.com/repos" #/alexphobby/Micropython/contents/POC/ESP32_C3_OTA/lib"
@@ -92,13 +92,11 @@ class Senko:
                 if file.split('/')[-1] in os.listdir(file.split('/')[0]):
                     print("file found")
                 else:
-                    changes.append(file)
                     continue
             else:
                 if file in os.listdir('/'):
                     print("file found")
                 else:
-                    changes.append(file)
                     continue
             latest_version = self._get_file(self.url_raw + "/" + file)
 
