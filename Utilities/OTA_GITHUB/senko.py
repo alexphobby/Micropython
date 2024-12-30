@@ -52,7 +52,7 @@ class Senko:
 
     def _get_file(self, url):
         print(f"url: {url}")
-        payload = requests.get(url_raw, headers={'User-Agent': 'alexphobby'})
+        payload = requests.get(url, headers={'User-Agent': 'alexphobby'})
         code = payload.status_code
         #print(f'_get_file code {code}, content: {payload.text}')
 
