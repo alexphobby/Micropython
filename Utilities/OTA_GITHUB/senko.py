@@ -42,8 +42,12 @@ class Senko:
         y = y_hash.digest()
 
         if str(x) == str(y):
+            x = None
+            y = None
             return True
         else:
+            x = None
+            y = None
             return False
 
     def _get_file(self, url):
@@ -97,6 +101,8 @@ class Senko:
 
             if not self._check_hash(latest_version, local_version):
                 changes.append(file)
+            latest_version = None
+            local_version = None
 
         return changes
 
@@ -114,9 +120,7 @@ class Senko:
 
     def update(self):
         """Replace all changed files with newer one.
-
-        Returns:
-            True - if changes were made, False - if not.
+           True - if changes were made, False - if not.
         """
         changes = self._check_all()
 
