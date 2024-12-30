@@ -120,15 +120,25 @@ class MACHINES:
             self.github_folder = "POC/ESP32_C3_OTA"
             self.devicetype = "thermometer"
             self.features = []
+        
+        elif self.guid == "ecda3bbda314":
+            self.device = "esp32_s3_boiler_control"
+            self.name = "ESP32_Boiler_Control"
+            self.github_folder = "POC/ESP32_S3_BOILER_CONTROL"
+            self.devicetype = "boiler_control"
+            self.features = []
+        
 
 
 
         else:
             print(f"Machine {self.guid} not defined")
             
-            self.device = "not defined"
-            self.name = "not defined"
-            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.device = "not_defined"
+            self.name = "not_defined"
+            self.github_folder = "POC/ESP32_C3_OTA"
+            self.devicetype = "not_defined"
+            self.features = []
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"
@@ -136,3 +146,4 @@ class MACHINES:
         print(f"Machine Name: {self.name}")
         print(f"Machine Topics: Receiving:{self.topic_receive}; Sending:{self.topic_send}")
         print(f"Machine Features: {self.features}")
+        print(f"Machine OTA: {self.github_folder}")
