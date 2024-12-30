@@ -100,6 +100,7 @@ class Senko:
                 local_version = ""
 
             if not self._check_hash(latest_version, local_version):
+                print(f'File {file} will be updated')
                 changes.append(file)
             latest_version = None
             local_version = None
