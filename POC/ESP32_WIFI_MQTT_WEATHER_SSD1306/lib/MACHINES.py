@@ -18,19 +18,13 @@ class MACHINES:
         elif self.guid == "e6614103e7147f24":
             self.device = "a36_cam_medie"
             self.name = "Dormitor"
-            self.devicetype = "lights"
-            self.features = ["thermometer","humidity","ambientlight"]
-            
         elif self.guid == "e6614103e7739437":
             self.device = "a36_other1"
             self.name = "Other1"
         
         elif self.guid == "e6614103e74f192e":
-            self.device = "a36_Birou"
-            self.name = "Birou"
-            self.devicetype = "lights"
-            self.features = ["thermometer","humidity","ambientlight"]
-
+            self.device = "a36_other2"
+            self.name = "Other2"
         
         elif self.guid == "e6614103e71a8e26":
             self.device = "a36_other3"
@@ -73,7 +67,7 @@ class MACHINES:
             
         elif self.guid == "c04e30813a64":
             self.device = "a36_esp32c3_4"
-            self.name = "Birou"
+            self.name = "Dormitor_3"
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity","ambientlight","count"]
@@ -87,11 +81,11 @@ class MACHINES:
 
 
         elif self.guid == "8065996ad23c":
-            self.device = "a36_esp32c3_6"
-            self.name = "Box_2"
+            self.device = "a36_esp32c3_pump"
+            self.name = "Pump"
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
             self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity"]
+            self.features = ["thermometer","last_event"]
 
         elif self.guid == "c04e30814160":
             self.device = "a36_esp32c3_7"
@@ -100,11 +94,32 @@ class MACHINES:
             self.devicetype = "thermometer"
             self.features = ["thermometer","display","humidity"]
 
-        elif self.guid == "3030f9baa92c":
-            self.device = "a36_birou"
-            self.name = "Birou"
-            self.devicetype = "lights"
-            self.features = ["thermometer","humidity","ambientlight"]
+        elif self.guid == "34b7da52f800":
+            self.device = "a36_esp32s3_1"
+            self.name = "S3_1"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
+
+        elif self.guid == "34b7da52f074":
+            self.device = "a36_esp32s3_2"
+            self.name = "S3_2"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
+        elif self.guid == "ecda3bbd88e8":
+            self.device = "a36_esp32s3_2"
+            self.name = "C3_Test1"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = []
+
+        elif self.guid == "ecda3bbd787c":
+            self.device = "esp32_c3_test2"
+            self.name = "C3_Test1"
+            self.github_folder = "POC/ESP32_C3_OTA"
+            self.devicetype = "thermometer"
+            self.features = []
 
 
 
