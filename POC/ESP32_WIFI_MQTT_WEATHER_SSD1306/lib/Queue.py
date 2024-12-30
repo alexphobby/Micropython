@@ -31,16 +31,16 @@ class Queue:
     def _get(self):
         #self._evget.set()  # Schedule all tasks waiting on get
         #self._evget.clear()
-        #print("_get return")
+        print("_get return")
         return self._queue.pop(0)
 
     async def get(self):  #  Usage: item = await queue.get()
         while self.empty():  # May be multiple tasks waiting on get()
-            #print("q empty")
+            print("q empty")
             # Queue is empty, suspend task until a put occurs
             # 1st of N tasks gets, the rest loop again
             await self._evput.wait()
-            #print("q iten, _get")
+            print("q iten, _get")
         
             
         return self._get()
@@ -54,7 +54,7 @@ class Queue:
     def _put(self, val):
         self._queue.append(str(val,"UTF-8"))
         #self._evput.clear()
-        #print(f"appended, qsize: {self.qsize()}")
+        print(f"appended, qsize: {self.qsize()}")
         self._evput.set()
         self._evput.clear()  # Schedule tasks waiting on put
 
@@ -64,7 +64,7 @@ class Queue:
             print("Queue full")
             await self._evget.wait()
             # Task(s) waiting to get from queue, schedule first Task
-        #print("aput")
+        print(f"aput val: {val}")
         self._put(val)
         
 

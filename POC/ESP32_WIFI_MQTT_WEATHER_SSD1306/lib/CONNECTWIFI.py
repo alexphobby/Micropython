@@ -4,6 +4,7 @@ import time
 import secrets
 from machine import Pin
 #import binascii
+from sys import platform
 
 class CONNECTWIFI:
 #    hotspots = []
@@ -26,6 +27,10 @@ class CONNECTWIFI:
             print("Init wlan")
             self.wlan = network.WLAN(network.STA_IF)
             self.wlan.active(True)
+            if platform == "rp2":
+                time.sleep(6)
+            elif platform == "ESP32":
+                pass
         
         if self.wlan.isconnected() == False:
             print("Need to connect")
@@ -111,7 +116,7 @@ class CONNECTWIFI:
                             
             except Exception as ex:
 #                pass
-                print(f"Err - Cannot connect to {hotspot[0]}, current status = {self.wlan.status()}, {ex}")
+                print(f"Err - Cannot connect, current status = {self.wlan.status()}, {ex}")
                 time.sleep(1)
 
         
