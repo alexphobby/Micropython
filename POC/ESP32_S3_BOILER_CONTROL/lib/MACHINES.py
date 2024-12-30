@@ -123,7 +123,7 @@ class MACHINES:
         
         elif self.guid == "ecda3bbda314":
             self.device = "esp32_s3_boiler_control"
-            self.name = "S#_Boiler_Control"
+            self.name = "ESP32_Boiler_Control"
             self.github_folder = "POC/ESP32_S3_BOILER_CONTROL"
             self.devicetype = "boiler_control"
             self.features = []
