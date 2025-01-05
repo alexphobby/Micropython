@@ -127,7 +127,13 @@ class MACHINES:
             self.github_folder = "POC/ESP32_S3_BOILER_CONTROL"
             self.devicetype = "boiler_control"
             self.features = []
-        
+            
+        elif self.guid in ("24ec4a304700","24ec4a305118"):
+            self.device = f'esp32_s3_{self.guid}'
+            self.name = f'ESP32_s3_{self.guid}'
+            self.github_folder = "POC/ESP32_C3_OTA"
+            self.devicetype = "lights"
+            self.features = ["thermometer","display","humidity","count"]
 
 
 
@@ -137,8 +143,8 @@ class MACHINES:
             self.device = "not_defined"
             self.name = "not_defined"
             self.github_folder = "POC/OTA_GITHUB"
-            self.devicetype = "not_defined"
-            self.features = []
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity","count"]
         
         self.topic_receive = f"to/{self.device}"
         self.topic_send = f"from/{self.device}"

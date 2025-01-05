@@ -10,6 +10,10 @@ from machine import Pin,lightsleep
 from random import randint
 from time import sleep
 
+
+from server import Service,Characteristic,register_services #also need core,device
+from peripheral import advertise
+#from client import Characteristic
 sleep(1)
 
 # Init LED
@@ -116,7 +120,8 @@ async def wait_for_write():
 async def main():
     t1 = asyncio.create_task(sensor_task())
     t2 = asyncio.create_task(peripheral_task())
-    t3 = asyncio.create_task(wait_for_write())
-    await asyncio.gather(t1, t2)
+    #t3 = asyncio.create_task(wait_for_write())
+    #await asyncio.gather(t1, t2)
+    await asyncio.gather(t1)
     
 asyncio.run(main())

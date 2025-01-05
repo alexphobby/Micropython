@@ -1,7 +1,7 @@
 import urequests
 import machine
-from machine import Pin,PWM,Timer,ADC,time_pulse_us
-from sys import platform
+from machine import Pin,PWM,Timer,ADC,time_pulse_us,freq
+#freq(160000000)
 
 import time
 import utime
@@ -13,6 +13,14 @@ import sys
 import ubinascii
 from MACHINES import MACHINES
 my_machine = MACHINES()
+
+if "ESP32S3" in sys.implementation._machine:
+    from neopixel_util import *
+    led = NEOPIXEL_UTIL()
+elif "ESP32C3" in sys.implementation._machine:
+    led = Pin(25,Pin.OUT)
+else:
+    led = Pin('LED',Pin.OUT)
 #from CONNECTWIFI import CONNECTWIFI
 #wifi = CONNECTWIFI()
 from i2c_init import *
@@ -42,7 +50,7 @@ dim_value = 0
 def dim(strValue):
     global dim_value
     #dim_value = int(float(strValue)*10.23)
-    my_print(f"Dim to: {strValue}")
+    #my_print(f"Dim to: {strValue}")
     dimmer.dimToPercent(int(strValue))
 
 
@@ -53,11 +61,11 @@ from dim import Dim
 from brightness_map_1024 import brightness_map_1024 as brightness_map
 from pid import PID
 
-led_pin = 8
+led_pin = 21
 
 motion_pin = 5
-ir_pin = 0
-ambient_light_pin = 1 #26
+ir_pin = 1
+ambient_light_pin = 1
 
 fade_time_ms=2000
 dimmer = Dim(led_pin,fade_time_ms = fade_time_ms)
@@ -260,7 +268,8 @@ def pressed_button(button):
         brightness -= 5
         dimmer.dimToPercent(dimmer.getPercent() - 5)
     elif _button == "*":
-        print("toggle brightness auto" )#, initial status: {}".format(auto_brightness))
+        print("n/a")
+        #print("toggle brightness, initial status: {}".format(auto_brightness))
         last_remote_button_time = time.ticks_ms()
         last_remote_button = _button
         #if auto_brightness:
@@ -341,14 +350,13 @@ def ir_callback(remote,command,combo):
     pressed_button(remote_button)
 
     
-ir_remote_read(ir_pin,ir_callback, debug = debug)
+ir_remote_read(ir_pin,ir_callback,timer = Timer(1), debug = debug)
 print("IR sensor listening")
 
 try:
     i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
 except:
     print("no i2c")
-
 
 try:
     hdc1080 = HDC1080(i2c)
@@ -420,8 +428,14 @@ def update_pid(timer):
 
 
 from micropython import const  
+
 pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
 
+timer_pid = Timer(0)
+#timer = Timer()
+#timer_blink = Timer()
+#timer_check_messages = Timer()
+#timer_pid.init(period=50, mode=Timer.PERIODIC, callback = update_pid)
 
 
 
@@ -494,7 +508,6 @@ import ssl
 def mqttClient(ssl_enabled = False,name="pico"):
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.verify_mode = ssl.CERT_NONE
-
     client = MQTTQueue(client_id=b"" + my_machine.name,
     server=b"fc284e6f2eba4ea29babdcdc98e95188.s1.eu.hivemq.cloud",
     port=8883,
@@ -686,40 +699,23 @@ adc = ADC(ambient_light_pin)
 #pwm.freq(30000)
 #pwm.duty_u16(0)
 
+    
 
-#led = Pin(25,Pin.OUT)
-#led = Pin('LED',Pin.OUT)
-led = Pin(2,Pin.OUT)
+#
+
 #led12 = Pin(15,Pin.OUT)
 #led12.on()
 
 motion = Pin(motion_pin, Pin.IN,Pin.PULL_DOWN)
 
-if (platform == "esp32"):
-    timer_pid = Timer(0)
-    timer = Timer(1)
-    timer_blink = Timer(2)
-    timer_check_messages = Timer(3)
 
-elif platform == "rp2":
-    timer_pid = Timer()
-    timer = Timer()
-    timer_blink = Timer()
-    timer_check_messages = Timer()
-else:
-    print("unknown")
 
 #timer_test.init(period=5000, mode=Timer.PERIODIC, callback=lambda t:timerTest)   # Timer.ONE_SHOT . Period in m
 
-def blinkOnboardLed(timer):
-    global led
-    pass
-    #led.toggle()
-    #if abs(dimSetPoint - int(adc.read_u16()* 233 / 65000)) > 3:
 
 
 
-timer_blink.init(period=1000, mode=Timer.PERIODIC, callback = blinkOnboardLed)
+
 
 time.sleep(0.2)
 
@@ -752,18 +748,20 @@ motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 async def wifi_connection_check(wifi):
     global event_mq_connected,event_wifi_connected
     while True:
-        my_print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+        #my_print(f"called wifi connection check, wifi: {wifi.is_connected()}, MQ event:{event_mq_connected.state}  - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+        print(f"wifi_connection_check event_wifi_connected.state: {event_wifi_connected.state}")
         if wifi.is_connected():
-            if event_wifi_connected.state:
-                pass
-            else:
+            led.value(True)
+            if not event_wifi_connected.state:
                 event_wifi_connected.set()
+                
         else:
             my_print("Wifi not connected, clear wifi and mq events")
+            led.value(False)
             event_mq_connected.clear()
             event_wifi_connected.clear()
                 
-        await asyncio.sleep(30)
+        await asyncio.sleep(60)
 
 
 async def mq_connection_check(event_wifi_connected,event_mq_connected):
@@ -785,32 +783,33 @@ async def connect_mq(event_request_ready):
     if True: #while True:
         my_print(f"MQ connection - wait for wifi: {event_wifi_connected.state} and request: {event_request_ready.state}")
         await event_wifi_connected.wait()
-        event_sleep_ready.clear()
-        await asyncio.sleep(2)
-        #my_print("MQ connection - wifi ok")
-        try:
-            #await event_request_ready.wait()
-            my_print("MQ connection - connect")
-            gc.collect()
-            await asyncio.sleep(0)
-            my_print(f"connect_mq - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
-            event_request_ready.clear()
-            client.connect()
-            gc.collect()
-            client.subscribe(topic = b"to/*")
-            await asyncio.sleep(1)
-            #gc.collect()
-            #client.check_msg()
-            await client.a_wait_msg(queue)
-            client.subscribe(topic = my_machine.topic_receive)
-            my_print("MQ connected and subscribed")
-            event_mq_connected.set()
-            event_sleep_ready.set()
-            
-        except Exception as ex:
-            my_print(f"Err connecting to MQ, {ex}")
-            event_mq_connected.clear()
-        event_request_ready.set()
+        if not event_mq_connected.is_set():
+            event_sleep_ready.clear()
+            await asyncio.sleep(2)
+            #my_print("MQ connection - wifi ok")
+            try:
+                #await event_request_ready.wait()
+                my_print("MQ connection - connect")
+                gc.collect()
+                await asyncio.sleep(0)
+                my_print(f"connect_mq - mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
+                event_request_ready.clear()
+                client.connect()
+                gc.collect()
+                client.subscribe(topic = b"to/*")
+                await asyncio.sleep(1)
+                #gc.collect()
+                #client.check_msg()
+                await client.a_wait_msg(queue)
+                client.subscribe(topic = my_machine.topic_receive)
+                my_print("MQ connected and subscribed")
+                event_mq_connected.set()
+                event_sleep_ready.set()
+                
+            except Exception as ex:
+                my_print(f"Err connecting to MQ, {ex}")
+                event_mq_connected.clear()
+            event_request_ready.set()
         await asyncio.sleep(2) 
 
 
@@ -827,28 +826,28 @@ async def mq_check_messages(client,time=5):
         #led.value(True)
         #await asyncio.sleep_ms(1)
         #led.value(False)
-
-        try:
+        if True:
+        #try:
             #client.ping()
-            #my_print("MQ Check msg")
+            #print("MQ Check msg")
             if wifi.is_connected():
                 #await asyncio.sleep(0.2)
                 #client.check_msg()
                 await client.a_wait_msg(queue)
-                await asyncio.sleep(0)
+                await asyncio.sleep(0.2)
                 counter += 1
                 if counter%30 == 0:
-                    #print("send ping")
+                    print("send ping")
                     client.ping()
                 
                 #print(counter)
                 #my_print("client checked msg")
                 
-        except Exception as ex:
-            my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
-            event_mq_connected.clear()
-            event_request_ready.set()
-            await asyncio.sleep(2)
+        #except Exception as ex:
+        #    my_print(f"MQ Error on ping, event_mq_connected.clear() Err:{ex}")
+        #    event_mq_connected.clear()
+        #    event_request_ready.set()
+        #    await asyncio.sleep(2)
 
         event_request_ready.set()
         
@@ -903,9 +902,9 @@ async def main():
     t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
     t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
     t_process_queue = asyncio.create_task(process_queue(queue))
-    t_read_pulse_in = asyncio.create_task(read_pulse_in())
+    #t_read_pulse_in = asyncio.create_task(read_pulse_in())
     
-    t_print_pulse_in = asyncio.create_task(print_pulse_in())
+    #t_print_pulse_in = asyncio.create_task(print_pulse_in())
 
     while True:
         await asyncio.sleep(10)
@@ -913,6 +912,7 @@ async def main():
         
         if t_wifi_connection_check.done():
             t_wifi_connection_check = None
+            print("restart task t_wifi_connection_check")
             t_wifi_connection_check = asyncio.create_task(wifi_connection_check(wifi))
         
         if t_process_queue.done():
@@ -921,13 +921,16 @@ async def main():
             t_process_queue = asyncio.create_task(process_queue(queue))
         
         if t_mq_connection_check.done():
+            print("restart task t_mq_connection_check")
             t_mq_connection_check = None
             t_mq_connection_check = asyncio.create_task(mq_connection_check(event_wifi_connected,event_mq_connected))
 
         if t_mq_check_messages.done():
+            print("restart task t_mq_check_messages")
             t_mq_check_messages = asyncio.create_task(mq_check_messages(client,0.5))
     
         if t_process_queue.done():
+            print("restart task t_process_queue")
             t_process_queue = asyncio.create_task(process_queue(queue))
 
 if True: #try:

@@ -6,7 +6,7 @@ from machine import Timer
 #from array import array
 #machine.freq(250000000)
 #import time
-
+from sys import platform
 
 def ir_callback(remote,command,combo,ac=True):
     pass
@@ -28,7 +28,14 @@ class ir_remote_read:
         self._message = ""
         self._times = array('i',  (0 for _ in range(70 + 1)))  # +1 for overrun
         self._delays = ""
-        self._ir_timer = Timer()
+        
+        if (platform == "esp32"):
+            self._ir_timer = Timer(0)
+        elif platform == "rp2":
+            self._ir_timer = Timer()
+        else:
+            print("unknown")
+            
         self._debug = debug
         self._pin.irq(trigger=Pin.IRQ_FALLING, handler=self._aquire) #Pin.IRQ_RISING|Pin.IRQ_FALLING
 
