@@ -52,6 +52,12 @@ ntp = NTP(wifi.wlan,event_wifi_connected,event_request_ready,event_ntp_updated)
 
 #print(f"mem free: {gc.mem_free()}; alloc: {gc.mem_alloc()}")
 #weather = WEATHER(event_wifi_connected,event_weather_updated,event_request_ready,event_sleep_ready)
+def getSeconds():
+    return time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
+def setSeconds():
+    global last_motion
+    last_motion = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
+
 async def blink(led,times = 1):
     for i in range(times - 1):
         led.on()
@@ -230,6 +236,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
 async def process_ir_queue(queue):
     global auto_start,auto_start_percent
     my_print("IR process_queue initialised")
+    setSeconds()
     while True:
         _button = await queue.get()
         my_print(f"IR Queue msg: {_button}")
@@ -282,16 +289,17 @@ async def process_ir_queue(queue):
 
 
 async def process_motion(event):
-    global last_motion,auto_start_percent
+    global auto_start_percent
     motion_threshold = 15
     while True:
         await event.wait()
-        _current_motion = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
+        setSeconds()
+        #_current_motion = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
         #print(f'process motion: {time.localtime()} -> {_current_motion} - last_motion: {last_motion}')
         if auto_start and dimmer.getPercent() == 0: #_current_motion - last_motion > motion_threshold:
             print(f"autostart, motion threshold passed set to {auto_start_percent}")
             await dimmer.dimToPercent(auto_start_percent)
-        last_motion = _current_motion
+        #last_motion = _current_motion
         await asyncio.sleep(10)
         event.clear()
     
@@ -306,12 +314,15 @@ async def process_queue(queue):
             my_print("Send discovery result")
             await mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True)
         
-        elif _msg == "update" and topic == my_machine.topic_receive:
+        elif _msg == "update": # and topic == my_machine.topic_receive:
             my_print("Update from GitHub")
             
             #gc.collect
             import update
-            update.update()
+            try:
+                update.update()
+            except Exception as ex:
+                print(f"Err updating: {ex}")
         elif ":" in _msg:
             try:
                 _command,_strValue = _msg.split(':')
@@ -329,22 +340,23 @@ async def process_queue(queue):
         
         event_sleep_ready.set()
 
-def setAutoBrightness(strValue):
-    global autoBrightness, topic_send, pid, timer_pid
+async def setAutoBrightness(strValue):
+    global auto_start,auto_start_percent,dimmer
     
     
     
-    print(f"setAutoBrightness = {strValue}")
+    print(f"setAutoBrightness(auto_start) = {strValue}")
     if strValue == "true":
-        autoBrightness = True
-        _setpoint = read_light()
-        pid.set_point = _setpoint
-        print(f"Dim setpoint = {_setpoint}")
-        timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
+        auto_start = True
+        auto_start_percent = dimmer.getPercent()
+        #_setpoint = read_light()
+        #pid.set_point = _setpoint
+        #print(f"Dim setpoint = {_setpoint}")
+        #timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
         #pid.update()
     else:
-        autoBrightness = False
-        timer_pid.deinit()
+        auto_start = False
+        
     #time.sleep(2)
     #discovery("setAutobrightness")
 
@@ -512,24 +524,6 @@ autoBrightness = False
 
 
 
-def setAutoBrightness(strValue):
-    global autoBrightness, topic_send, pid, timer_pid
-    
-    
-    
-    print(f"setAutoBrightness = {strValue}")
-    if strValue == "true":
-        autoBrightness = True
-        _setpoint = read_light()
-        pid.set_point = _setpoint
-        print(f"Dim setpoint = {_setpoint}")
-        timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
-        #pid.update()
-    else:
-        autoBrightness = False
-        timer_pid.deinit()
-    #time.sleep(2)
-    #discovery("setAutobrightness")
 
 def discovery(sender):
     global topic_send,my_machine,lastMotion,autoBrightness
@@ -812,7 +806,8 @@ async def print_pulse_in():
         #await asyncio.sleep(1)
 
 async def inactivity():
-    global last_motion
+    global last_motion,auto_start,auto_start_percent
+
     print("Init inactivity loop")
     await asyncio.sleep(30)
     motion_threshold = 60
@@ -821,7 +816,7 @@ async def inactivity():
         _now = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
         #print(f'process inactivity: {time.localtime()} -> {_now} - last_motion: {last_motion}')
         if _now - last_motion > motion_threshold and dimmer.getPercent() != 0:
-            print("inactivity, motion threshold passed ")
+            print(f'inactivity, motion threshold passed auto_start: {auto_start} - auto_start_percent: {auto_start_percent}')
             await dimmer.dimToPercent(0)
         
         await asyncio.sleep(_sleep_time)
