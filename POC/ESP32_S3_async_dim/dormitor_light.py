@@ -67,12 +67,14 @@ async def blink(led,times = 1):
         
 dim_value = 0
 async def dim(strValue):
-    global dim_value,event_request_ready
+    global dim_value,event_request_ready,auto_start_percent
     #dim_value = int(float(strValue)*10.23)
 
     event_request_ready.clear()
     my_print(f"Dim to: {strValue}")
     await dimmer.dimToPercent(int(strValue))
+    if auto_start:
+        auto_start_percent = int(strValue)
     
     event_request_ready.set()
 
@@ -182,7 +184,7 @@ remote_button = ""
 last_remote_button_time = time.ticks_ms()
 
 async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_demand = False):
-    global event_request_ready,dimmer
+    global event_request_ready,dimmer,auto_start
     my_print(f"mqtt_send_temp, on demand= {on_demand}")
     if on_demand:
         if not event_mq_connected.state:
@@ -191,7 +193,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
         try:
             
             #my_print(f"Send on demand message on {my_machine.topic_send}")
-            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
+            _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0,"motion": auto_start} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
             event_request_ready.clear()
             #my_print("ping")
             #client.ping()
@@ -219,7 +221,7 @@ async def mqtt_send_temp(client,event_wifi_connected,event_mq_connected,on_deman
             await event_request_ready.wait()
             try:
                 my_print(f"Send mqtt message on {my_machine.topic_send}")
-                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0}
+                _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0,"motion": auto_start}
                 #client.ping()
                 await asyncio.sleep_ms(100)
                 #client.publish(my_machine.topic_send, f'jsonDiscovery:{_output}', qos = 0,retain=False)
@@ -329,6 +331,7 @@ async def process_queue(queue):
                 my_print(f"MQ Command Run if available: {_command}, param: {_strValue}")
                 if _command in locals():
                     asyncio.create_task(eval(f'{_command}')(_strValue)) #locals()[_command](_strValue)
+                    discovery(_command)
                     #time.sleep(10)
             except Exception as ex:
                 my_print(f"Error unpacking or running: {_msg}, {ex}")
@@ -340,12 +343,25 @@ async def process_queue(queue):
         
         event_sleep_ready.set()
 
-async def setAutoBrightness(strValue):
+async def setMotion(strValue):
     global auto_start,auto_start_percent,dimmer
     
+    if strValue == "true":
+        auto_start = True
+        auto_start_percent = dimmer.getPercent()
+        print(f"setMotion(auto_start) = {strValue} - light:{dimmer.getPercent()}")
+        #_setpoint = read_light()
+        #pid.set_point = _setpoint
+        #print(f"Dim setpoint = {_setpoint}")
+        #timer_pid.init(period=100, mode=Timer.PERIODIC, callback = update_pid)
+        #pid.update()
+    else:
+        auto_start = False
+        
     
-    
-    print(f"setAutoBrightness(auto_start) = {strValue}")
+async def setAutoBrightness(strValue):
+    print(f"setAutoBrightness(auto_start) = {strValue} - neimplementat")
+    return
     if strValue == "true":
         auto_start = True
         auto_start_percent = dimmer.getPercent()
@@ -440,7 +456,7 @@ def update_pid(timer):
 
 from micropython import const  
 
-pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
+#pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
 
 timer_pid = Timer(0)
 timer = Timer(2)
@@ -528,11 +544,13 @@ autoBrightness = False
 def discovery(sender):
     global topic_send,my_machine,lastMotion,autoBrightness
     print(f"Discovery function called by {sender}")
-    temperature = read_temperature()
-    humidity = read_humidity()
-    ambient = read_light()
-    dim = read_dim()
-    output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness}
+    #temperature = read_temperature()
+    #humidity = read_humidity()
+    #ambient = read_light()
+    #dim = read_dim()
+    #output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temperature),"humidity":str(humidity),"ambient":str(ambient),"dim":str(dim),"lastmotion":lastMotion,"autobrightness":autoBrightness,"motion": auto_start}
+    _output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(0),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0,"motion": auto_start}
+                
     #_output = {"devicename":str(my_machine.device),"roomname":str(my_machine.name),"devicetype": str(my_machine.devicetype),"features": str(my_machine.features),"temperature":str(temp_sensor.temperature() or -100),"humidity":str(temp_sensor.humidity() or -100),"ambient":str(light_sensor.light()),"dim":str(dimmer.getPercent()),"lastmotion":0,"autobrightness":0,"count":0} #"lastmotion":f'{rtc.datetime()[4]:02d}:{rtc.datetime()[5]:02d}:{rtc.datetime()[6]:02d}'
     
     #output = json.loads()
@@ -541,8 +559,8 @@ def discovery(sender):
     #if (time.time() - lastMotion ) / 60 < 5:
     #publish(topic_send, f"lastmotion:{lastMotion}")
     #sendTemperature("Discovery")
-    publish(topic_send, f"jsonDiscovery:{output}")
-    print(f"jsonDiscovery:{output}")
+    publish(topic_send, f"jsonDiscovery:{_output}")
+    print(f"jsonDiscovery:{_output}")
 
 def sub_cb(topic, msg):
     global light,last_run_time_send,light_pwm,timer_pid #,topic

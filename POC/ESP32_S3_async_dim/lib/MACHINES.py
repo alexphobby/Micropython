@@ -140,7 +140,7 @@ class MACHINES:
             self.name = f'ESP32_s3_{self.guid}'
             self.github_folder = "POC/ESP32_S3_async_dim"
             self.devicetype = "lights"
-            self.features = ["thermometer","display","humidity","count"]
+            self.features = ["thermometer","display","humidity","count","motion"]
 
 
         else:
