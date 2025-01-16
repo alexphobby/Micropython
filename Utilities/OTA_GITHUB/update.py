@@ -2,14 +2,14 @@
 #from mqtt_as_init import *
 #test()
 print("Update from GitHub. Usage: update()")
-def update():
+def update(connect = False):
     import MACHINES
     my_machine = MACHINES.MACHINES()
     import gc
     import machine
-    
-    import CONNECTWIFI
-    wifi = CONNECTWIFI.CONNECTWIFI()
+    if connect:
+        import CONNECTWIFI
+        wifi = CONNECTWIFI.CONNECTWIFI()
     
     from senko import Senko
     gc.collect()

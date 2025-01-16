@@ -15,7 +15,7 @@ from sys import platform
     #print(combo)
 
 class ir_remote_read:
-    def __init__(self,pin,callback,ac=False, debug = False):
+    def __init__(self,pin,callback= None,ac=False, debug = False):
         self._pin = pin
         self._callback = callback
         self._ac = ac
@@ -47,10 +47,12 @@ class ir_remote_read:
     async def process(self,queue):
         print("IR listen")
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.3)
             if self._debug:
                 print("process loop")
-            if utime.ticks_us() - self._last_edge > self.timeout and self._bits > 30:
+            if utime.ticks_us() - self._last_edge < self.timeout or self._bits < 30:
+                continue
+            else:
                 _valid = False
                 _val = 0
                 _addr=0
@@ -101,8 +103,8 @@ class ir_remote_read:
                         _remote = eval(f'my_remotes.{remote}')
                         _button = _remote['_'.join((str(_addr),str(_cmd)))]
                         await queue.aput(_button)
-                        print(f'Ir read {_button}')
-                        self._callback(_button)
+                        #print(f'Ir read {_button}')
+                        #self._callback(_button)
                         break
                     except Exception as ex:
                         #print(f'Err: {ex}')
