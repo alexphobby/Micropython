@@ -142,6 +142,13 @@ class MACHINES:
             self.devicetype = "lights"
             self.features = ["thermometer","display","humidity","count","motion"]
 
+        elif self.guid in ("24ec4a3070c8"):
+            self.device = f'Dormitor'
+            self.name = f'Dormitor'
+            self.github_folder = "POC/ESP32_S3_async_dim"
+            self.devicetype = "lights"
+            self.features = ["thermometer","display","humidity","count","motion"]
+
 
         else:
             print(f"Machine {self.guid} not defined")

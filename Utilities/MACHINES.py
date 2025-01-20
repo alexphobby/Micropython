@@ -76,8 +76,8 @@ class MACHINES:
             self.device = "a36_esp32c3_5"
             self.name = "Box_1"
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
-            self.devicetype = "thermometer"
-            self.features = ["thermometer","display","humidity"]
+            self.devicetype = "lights" #"thermometer"
+            self.features = ["thermometer","display","humidity","ambientlight","motion"]
 
 
         elif self.guid == "8065996ad23c":

@@ -12,24 +12,22 @@ class NTP:
     
     last_update = 0
     rtc = ""
-    def __init__(self,wlan,event_wifi_connected,event_request_ready,event_ntp_updated):
+    def __init__(self,wlan,event_wifi_connected,event_request_ready,event_ntp_updated,debug = False):
         self.wlan = wlan
         result = False
         self.event_wifi_connected = event_wifi_connected
         self.event_request_ready = event_request_ready
         self.event_ntp_updated = event_ntp_updated
         #self.rtc = RTC()
-        
+        self.debug = debug
 
-        if platform == "ESP32":
+        #if platform == "ESP32":
             #time based on 2000, not 1970
-            EPOCH_OFFSET = 946684800
-        else:
-            print(f"find epoch offset, platform = {platform}")
-        print("NTP initialised, call as update_ntp(event_wifi_connected)")
+        #    EPOCH_OFFSET = 946684800
+        if self.debug:
+            print("NTP initialised, call as update_ntp(event_wifi_connected)")
 
     async def update_ntp(self):
-        print("Get ntp time")
         while True:
             await self.event_wifi_connected.wait()
             if self.wlan.isconnected() and (self.last_update == 0 or self.last_update != time.localtime()[2]):
@@ -41,7 +39,8 @@ class NTP:
                         await self.event_request_ready.wait()
                         self.event_request_ready.clear()
                         ntptime.settime()
-                        print(f"NTP OK, Time: {time.localtime()}") #, current day: {self.rtc.datetime()[2]}")
+                        if self.debug:
+                            print(f"NTP OK, Time: {time.localtime()}") #, current day: {self.rtc.datetime()[2]}")
                         self.last_update = time.localtime()[2]
                         #await asyncio.sleep_ms(100)
                         await self.update_timezone()
@@ -66,7 +65,8 @@ class NTP:
             retry_count = 2
             while err and retry_count > 0:
                 try:
-                    print("Get timezone")
+                    if self.debug:
+                        print("Get timezone")
                     self.event_request_ready.clear()
                     #res = urequests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()
                     #self.UTC_OFFSET = int(requests.get("http://worldtimeapi.org/api/timezone/Europe/Bucharest").json()["raw_offset"]/3600)
@@ -76,10 +76,11 @@ class NTP:
                     print(f"UTC OFFSET {self.UTC_OFFSET}")
                     if self.UTC_OFFSET != 0 :
                         _rtc = RTC()
-                        print(f"Before UTC: {_rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
+                        if self.debug:
+                            print(f"Before UTC: {_rtc.datetime()}; UTC_OFFSET= {self.UTC_OFFSET}")
                         _tm = time.localtime()
                         _tm = _tm[0:3] + (0,_tm[3]+ self.UTC_OFFSET,) + _tm[4:6] + (0,)
-                        print(_tm)
+                        #print(_tm)
                         
                         _rtc.datetime(_tm)
                         #RTC().datetime(_tm)

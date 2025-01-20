@@ -51,7 +51,7 @@ class MQTTQueue(MQTTClient):
         super().connect()
     
     def ping(self):
-        print("PING")
+        #print("PING")
         super().ping()
         
     def check_msg(self, attempts=2):
@@ -133,7 +133,7 @@ class MQTTQueue(MQTTClient):
             print("Empty response")
 
         if res == b"\xd0":  # PINGRESP
-            print("pingresp")
+            #print("pingresp")
             await self._as_read(1)  # Update .last_rx time
             return
         op = res[0]

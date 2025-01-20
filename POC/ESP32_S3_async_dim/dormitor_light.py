@@ -12,6 +12,11 @@ import asyncio
 import sys
 import ubinascii
 from MACHINES import MACHINES
+
+
+from BUZZER import BUZZER
+buzzer = BUZZER(17,max_duty=2)
+
 my_machine = MACHINES()
 led = ""
 led_2 = Pin(6,mode = Pin.OUT, value = 0)
@@ -88,13 +93,16 @@ from pid import PID
 
 led_pin = 7
 
-motion_pin = 5
-motion = Pin(motion_pin, Pin.IN,Pin.PULL_DOWN)
+
+motion = Pin(5, Pin.IN,Pin.PULL_DOWN) #active high
+presence = Pin(6, Pin.IN,Pin.PULL_UP) #active low
+
 lastMotion = 0
 last_motion = 0
 motionOccurances = 0
 _MOTIONTHRESHOLDSECONDS = const(2)
 event_motion = Event()
+event_presence = Event()
 
 def motion_sensed(pin):
     global lastMotion,motionOccurances
@@ -107,13 +115,25 @@ def motion_sensed(pin):
         
     #    timer.init(period=10*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
     print("motion")
+
+def presence_sensed(pin):
+    global lastMotion,motionOccurances
+    #pin.irq(trigger=0)
+    if event_presence.is_set():
+        return
     
+    event_presence.set()
+    #if time.time() - lastMotion < _MOTIONTHRESHOLDSECONDS:
+        
+    #    timer.init(period=10*60*1000, mode=Timer.ONE_SHOT, callback=dimToOff)
+    print("presence")
+
     #time.sleep(5)
     #lastMotion = time.time()
     #pin.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 
 motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
-
+presence.irq(trigger=Pin.IRQ_FALLING,handler=motion_sensed)
 
 
 ir_pin = 1
@@ -174,6 +194,7 @@ print("IR sensor library init")
 ir_pin = Pin(ir_pin,Pin.IN) #,Pin.PULL_UP
 def ir_cb(button):
     print(f'button is {button}')
+    return
     if button == "up":
         #brightness += 5
         print("dim up")
@@ -242,6 +263,7 @@ async def process_ir_queue(queue):
     while True:
         _button = await queue.get()
         my_print(f"IR Queue msg: {_button}")
+        await buzzer.buzz_as()
         await blink(led_ir,2)
         if _button == "up":
             await dimmer.dimToPercent(dimmer.getPercent() + 5)
@@ -290,11 +312,15 @@ async def process_ir_queue(queue):
             #await mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True)
 
 
-async def process_motion(event):
+async def process_motion(event_list):
     global auto_start_percent
     motion_threshold = 15
     while True:
-        await event.wait()
+        #await event.wait()
+        print("await process_motion")
+        for _evt in event_list:
+            await _evt.wait()
+        print("process_motion")
         setSeconds()
         #_current_motion = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
         #print(f'process motion: {time.localtime()} -> {_current_motion} - last_motion: {last_motion}')
@@ -330,6 +356,7 @@ async def process_queue(queue):
                 _command,_strValue = _msg.split(':')
                 my_print(f"MQ Command Run if available: {_command}, param: {_strValue}")
                 if _command in locals():
+                    await buzzer.buzz_as()
                     asyncio.create_task(eval(f'{_command}')(_strValue)) #locals()[_command](_strValue)
                     discovery(_command)
                     #time.sleep(10)
@@ -523,7 +550,7 @@ def publish(topic_send, value):
     global client
     #print(topic)
     #print(f"Sending to {topic_send} Message: {value}")
-    client.publish(topic=topic_send, msg= value, retain=True, qos=0)
+    client.publish(topic=topic_send, msg= value, retain=False, qos=0)
     #print("publish Done")
 
 def sendTemperature(sender):
@@ -875,7 +902,7 @@ async def main():
         if t_motion is None or t_motion.done():
             t_motion = None
             print("restart task t_motion")
-            t_motion = asyncio.create_task(process_motion(event_motion)) #not handled
+            t_motion = asyncio.create_task(process_motion([event_motion,event_presence])) #not handled
         
         if t_inactivity is None or t_inactivity.done():
             t_inactivity = None

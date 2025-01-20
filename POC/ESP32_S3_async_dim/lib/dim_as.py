@@ -21,8 +21,7 @@ class Dim:
         self.pwm_1 = PWM(self.pin1)
         self.pwm_1.deinit()
         self.pwm_1.init()
-        self.pwm_1.freq(1000)
-       
+        self.pwm_1.freq(8000)
         self.pwm_1.duty_u16(0)
         if pin2 is not None:
             self.pin2 = Pin(pin2,Pin.OUT)
@@ -54,8 +53,12 @@ class Dim:
         
         #print(self.state, self.step1, self.step2)
         #print("Init to 0")
+    
     async def dimToPercent(self,reqPercent1):
-        self.reqIndex1 = round(reqPercent1 * self.max1 /100)
+        await self.dimToIndex(round(reqPercent1 * self.max1 /100))
+
+    async def dimToIndex(self,index):
+        self.reqIndex1 = index
         #print(f'setReqas: {self.reqIndex1}, index1={self.index1}, req_percent: {reqPercent1}')
         self.ch1Enabled = True
         
@@ -86,25 +89,30 @@ class Dim:
                 self.index1 += int(10* _ecart / abs(_ecart))
                 #print(f'd100 {self.index1}')
                 self.pwm_1.duty_u16(brightness_map[self.index1])
-                #await asyncio.sleep(0.05)
+                await asyncio.sleep(0.01)
             elif abs(_ecart) > 10 :
                 self.index1 += int(5* _ecart / abs(_ecart))
                 #print("d30")
                 self.pwm_1.duty_u16(brightness_map[self.index1])
-                #await asyncio.sleep(0.05)
+                await asyncio.sleep(0.03)
+            elif abs(_ecart) > 5 :
+                self.index1 += int(_ecart / abs(_ecart))
+                #print("d30")
+                self.pwm_1.duty_u16(brightness_map[self.index1])
+                await asyncio.sleep(0.02)
+
             elif abs(_ecart) > 0 :
                 #print(f'd1, index: {self.index1} - ecart: {_ecart}')
                 self.index1 += int(_ecart / abs(_ecart))
                 self.pwm_1.duty_u16(brightness_map[self.index1])
-                
-                #sleep(0.05)
+                await asyncio.sleep(0.03)
             
             else:
                 print("Setpoint")
                 return
             
             #print(self.index1)
-            await asyncio.sleep(0.05)
+            #await asyncio.sleep(0.05)
 
     def setReqIndex1(self,reqIndex1):
         self.ch1Enabled = True
