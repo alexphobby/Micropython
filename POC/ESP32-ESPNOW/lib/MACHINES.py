@@ -76,8 +76,8 @@ class MACHINES:
             self.device = "a36_esp32c3_5"
             self.name = "Box_1"
             self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
-            self.devicetype = "lights" #"thermometer"
-            self.features = ["thermometer","display","humidity","ambientlight","motion"]
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
 
 
         elif self.guid == "8065996ad23c":
@@ -102,13 +102,11 @@ class MACHINES:
             self.features = ["thermometer","display","humidity"]
 
         elif self.guid == "34b7da52f074":
-            self.device = f'esp32_s3_{self.guid}'
-            self.name = "Birou"
-            self.github_folder = "POC/ESP32_S3_async_dim"
-            self.devicetype = "lights"
-            self.features = ["thermometer","display","humidity","count"]
-            
-            
+            self.device = "a36_esp32s3_2"
+            self.name = "S3_2"
+            self.github_folder = "POC/ESP32_WIFI_MQTT_WEATHER_SSD1306"
+            self.devicetype = "thermometer"
+            self.features = ["thermometer","display","humidity"]
         elif self.guid == "ecda3bbd88e8":
             self.device = "a36_esp32s3_2"
             self.name = "C3_Test1"
@@ -142,7 +140,14 @@ class MACHINES:
             self.name = f'ESP32_s3_{self.guid}'
             self.github_folder = "POC/ESP32_S3_async_dim"
             self.devicetype = "lights"
-            self.features = ["thermometer","display","humidity","count"]
+            self.features = ["thermometer","display","humidity","count","motion"]
+
+        elif self.guid in ("24ec4a3070c8"):
+            self.device = f'Dormitor'
+            self.name = f'Dormitor'
+            self.github_folder = "POC/ESP32_S3_async_dim"
+            self.devicetype = "lights"
+            self.features = ["thermometer","display","humidity","count","motion"]
 
 
         else:
