@@ -91,7 +91,7 @@ from dim_as import Dim
 from brightness_map_1024 import brightness_map_1024 as brightness_map
 from pid import PID
 
-led_pin = 7
+led_pin = 38
 ir_pin = 1
 ambient_light_pin = 2
 buzzer_pin = 17
