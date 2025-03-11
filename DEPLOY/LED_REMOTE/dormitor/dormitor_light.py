@@ -148,9 +148,6 @@ def motion_sensed(pin):
 motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 
 
-
-
-
 auto_start = False
 auto_start_percent = 0
 
@@ -871,9 +868,24 @@ async def clear_oled():
     my_print("Init clear_oled")
     while True:
         await asyncio.sleep(5)
-        if time.ticks_ms() - last_print > 30000:
+        if oled_enabled and time.ticks_ms() - last_print > 30000:
             oled.fill(0)
             oled.show()
+
+async def receive_espnow():
+    #global e
+    import aioespnow
+    e = aioespnow.AIOESPNow()  # Returns AIOESPNow enhanced with async support
+    e.active(True)
+    async for mac, msg in e:
+        print(f'Echo: {msg} - {str(msg,"UTF-8")}')
+        if str(msg,"UTF-8") == "ON":
+            setSeconds()
+            print("on")
+        else:
+            print("off")
+
+
 
 async def main():
     t_connect = asyncio.create_task(wifi.check_and_connect())
@@ -888,12 +900,14 @@ async def main():
     
     t_motion = None 
     t_inactivity = None
+
     t_update_ntp = None #asyncio.create_task(ntp.update_ntp())
     t_touch = None
     t_touch = asyncio.create_task(read_touch())
     #t_read_pulse_in = asyncio.create_task(read_pulse_in())
     #t_print_pulse_in = asyncio.create_task(print_pulse_in())
     t_clear_oled = None
+    t_receive_espnow = None
     while True:
         await asyncio.sleep(1)
         #gc.collect()
@@ -957,7 +971,12 @@ async def main():
             t_clear_oled = None
             print("restart task t_clear_oled")
             t_clear_oled = asyncio.create_task(clear_oled())
-        
+
+        if t_receive_espnow is None or t_receive_espnow.done():
+            t_receive_espnow = None
+            print("restart task t_receive_espnow")
+            t_receive_espnow = asyncio.create_task(receive_espnow())
+
         await asyncio.sleep(30)
 
 try:

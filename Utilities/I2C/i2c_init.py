@@ -58,7 +58,7 @@ oled_enabled = True
 
 if oled_enabled is True and "SSD1306" in found_devices:
     try:
-        #print("SH1106")
+        print("SH1106")
         from sh1106 import SH1106_I2C
         from writer import Writer
         import consolas12,consolas10
@@ -68,10 +68,12 @@ if oled_enabled is True and "SSD1306" in found_devices:
         oled_write.set_textpos(oled,0,0)
         oled_write.printstring(f"Loading...")
         oled.show()
+        print("SH1106 ok")
     except Exception as ex:
         print(f'OLED err: {ex}')
         oled_enabled = False
-        
+else:
+    oled_enabled = False
 light_sensor_enabled = False
 
 if "BH1750" in found_devices and light_sensor_enabled:
