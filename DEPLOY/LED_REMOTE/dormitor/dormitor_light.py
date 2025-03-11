@@ -882,6 +882,8 @@ async def receive_espnow():
         if str(msg,"UTF-8") == "ON":
             setSeconds()
             print("on")
+        elif str(msg,"UTF-8") == "CH":
+            await e.asend(mac, bytes(wifi.channel()))
         else:
             print("off")
 

@@ -49,7 +49,10 @@ class CONNECTWIFI_AS:
     def is_connected(self):
         
         return self.wlan.isconnected()
-        
+    
+    def channel(self):
+        return self.wlan.config("channel")
+    
     async def connect(self):
         #err=True
         counter = 50
