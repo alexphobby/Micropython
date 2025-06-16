@@ -1,9 +1,9 @@
-import time
-time.sleep(3)
+import urequests
 import machine
-from machine import Pin,PWM,Timer,ADC,time_pulse_us,freq,TouchPad,sleep
+from machine import Pin,PWM,Timer,ADC,time_pulse_us,freq
 #freq(160000000)
 
+import time
 import utime
 import ntptime
 import json
@@ -13,9 +13,6 @@ import sys
 import ubinascii
 from MACHINES import MACHINES
 my_machine = MACHINES()
-
-from BUZZER import BUZZER
-
 led = ""
 led_2 = Pin(6,mode = Pin.OUT, value = 0)
 
@@ -27,14 +24,12 @@ if "ESP32S3" in sys.implementation._machine:
     from neopixel_util import *
     led = NEOPIXEL_UTIL()
 elif "ESP32C3" in sys.implementation._machine:
-    led = Pin(25,Pin.OUT)
+    led = Pin(8,Pin.OUT)
 else:
     led = Pin('LED',Pin.OUT)
 #from CONNECTWIFI import CONNECTWIFI
 #wifi = CONNECTWIFI()
 from i2c_init import *
-
-print(oled_enabled)
 
 from WEATHER import *
 from NTP import *
@@ -91,38 +86,10 @@ from dim_as import Dim
 from brightness_map_1024 import brightness_map_1024 as brightness_map
 from pid import PID
 
-led_pin = 38
-ir_pin = 1
-ambient_light_pin = 2
-buzzer_pin = 17
-buzzer = BUZZER(buzzer_pin,max_duty=20)
-buzzer.buzz()
+led_pin = 7
 
 motion_pin = 5
 motion = Pin(motion_pin, Pin.IN,Pin.PULL_DOWN)
-touch_pin = 12
-t = TouchPad(Pin(touch_pin))
-sleep(1)
-previous=t.read()
-
-for i in range(10):
-    current=t.read()
-    if current-previous< 100:
-        previous = int((previous + current)/2)
-
-base = round(previous)
-print(f'Base value: {base}')
-t.config(base + 500)
-def check_touch():
-    if t.read() > base + 500:
-        return True
-    else:
-        return False
-
-def touch_sensed(pin):
-    print("sensed")
-    print(pin)
-
 lastMotion = 0
 last_motion = 0
 motionOccurances = 0
@@ -146,6 +113,11 @@ def motion_sensed(pin):
     #pin.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
 
 motion.irq(trigger=Pin.IRQ_RISING,handler=motion_sensed)
+
+
+
+ir_pin = 1
+ambient_light_pin = 2
 
 
 auto_start = False
@@ -199,9 +171,9 @@ from my_remotes import remote_tiny
 
 from ir_remote_read import ir_remote_read
 print("IR sensor library init")
-ir_pin = Pin(ir_pin,Pin.IN,Pin.PULL_UP)
+ir_pin = Pin(ir_pin,Pin.IN) #,Pin.PULL_UP
 def ir_cb(button):
-    my_print(f'button is {button}')
+    print(f'button is {button}')
     if button == "up":
         #brightness += 5
         print("dim up")
@@ -270,7 +242,6 @@ async def process_ir_queue(queue):
     while True:
         _button = await queue.get()
         my_print(f"IR Queue msg: {_button}")
-        await buzzer.buzz_as()
         await blink(led_ir,2)
         if _button == "up":
             await dimmer.dimToPercent(dimmer.getPercent() + 5)
@@ -278,14 +249,14 @@ async def process_ir_queue(queue):
             await dimmer.dimToPercent(dimmer.getPercent() - 5)
         elif _button in ("*","menu"):
             auto_start = not auto_start
-            my_print(f'pressed: {_button} - auto_start: {auto_start}')
+            print(f'pressed: {_button} - auto_start: {auto_start}')
         elif _button in ("#","exit"):
             print(f'pressed: {_button} - x')
         
         else:
             try:
                 directbutton = int(_button)
-                my_print(f"DirectButton= {directbutton}")
+                print(f"DirectButton= {directbutton}")
                 if directbutton == 0:
                     brightness = 0
                 elif directbutton == 1:
@@ -309,11 +280,11 @@ async def process_ir_queue(queue):
                     
                 await dimmer.dimToPercent(directbutton*11)
             except Exception as ex:
-                my_print(ex)
+                print(ex)
 
         if auto_start:
             auto_start_percent = dimmer.getPercent()
-            my_print(f'auto_start: {auto_start} - Auto_start_percent: {auto_start_percent}')
+            print(f'auto_start: {auto_start} - Auto_start_percent: {auto_start_percent}')
 
             #await dimmer.dimToPercent(99)
             #await mqtt_send_temp(client,event_wifi_connected,event_mq_connected,True)
@@ -408,9 +379,33 @@ async def setAutoBrightness(strValue):
 brightness = 0
 ir = ir_remote_read(ir_pin,ir_cb, debug = debug_ir)
 print("IR sensor listening")
+
+try:
+    i2c = machine.I2C(0,scl=Pin(1),sda=Pin(0))
+except:
+    print("no i2c")
+
+try:
+    hdc1080 = HDC1080(i2c)
+    print(f"Temp: {round(hdc1080.read_temperature(celsius=True),1)}")
+    print(f"Humidity: {int(hdc1080.read_humidity())}")
+    #print(f"Humidity: {int(hdc1080.read_humidity())}")
+
+
+except:
+    print("no humidity")
     
 #print("ok")
 #sys.exit()
+
+try:
+    from BH1750 import BH1750
+    bh1750 = BH1750(i2c)
+
+except:
+    print("no light sensor")
+
+
 
 
 def read_light():
@@ -464,7 +459,7 @@ from micropython import const
 #pid = PID(read_light,pid_output,_P=const(2.0), _I=const(0.01), _D=const(0.0),debug = False)
 
 timer_pid = Timer(0)
-timer = Timer(2)
+#timer = Timer(2)
 
 
 def read_temperature():
@@ -489,17 +484,9 @@ def read_dim():
 last_run_time_send = 0
 last_run_time_receive = 0
 
-last_print = 0
-def my_print(message):
-    global last_print
-    print(message)
-    if oled_enabled:
-        last_print = time.ticks_ms()
 
-        oled_write.set_textpos(oled,56,0)
-        oled_write.printstring(f'{message}\n')
-        oled.show()
-        
+def my_print(message):
+    print(message)
 
 import ssl
 def mqttClient(ssl_enabled = False,name="pico"):
@@ -573,7 +560,7 @@ def discovery(sender):
     #publish(topic_send, f"lastmotion:{lastMotion}")
     #sendTemperature("Discovery")
     publish(topic_send, f"jsonDiscovery:{_output}")
-    my_print(f"jsonDiscovery:{_output}")
+    print(f"jsonDiscovery:{_output}")
 
 def sub_cb(topic, msg):
     global light,last_run_time_send,light_pwm,timer_pid #,topic
@@ -800,7 +787,7 @@ read_pulses = []
 pulse_in = 0
 old_pulse_in = 0
 event_matter = Event()
-pwm_in = Pin(7,Pin.IN)
+pwm_in = Pin(4,Pin.IN)
 
 async def read_pulse_in():
     global read_pulses,pulse_in,old_pulse_in
@@ -826,14 +813,7 @@ async def read_pulse_in():
         #if len(read_pulses) >5:
         #    read_pulses.pop(0) 
         #pulse_in = round(sum(read_pulses) / len(read_pulses))
-async def read_touch():
-    await asyncio.sleep(5)
-    my_print("touch init")
-    while True:
-        if check_touch():
-            print("touch")
-        await asyncio.sleep(0.3)
-        
+
 async def print_pulse_in():
     await asyncio.sleep(5)
     while True:
@@ -851,76 +831,15 @@ async def inactivity():
     motion_threshold = 60
     _sleep_time=20
     while True:
-        if not auto_start:
-            await asyncio.sleep(_sleep_time)
-            continue
-        
         _now = time.localtime()[1]*30*24*3600 + time.localtime()[2]*24*3600 + time.localtime()[3]*3600 + time.localtime()[4]*60 + time.localtime()[5]
         #print(f'process inactivity: {time.localtime()} -> {_now} - last_motion: {last_motion}')
         if _now - last_motion > motion_threshold and dimmer.getPercent() != 0:
-            my_print(f'inact auto_start: {auto_start}')
-            my_print(f'auto_start_percent: {auto_start_percent}')
+            print(f'inactivity, motion threshold passed auto_start: {auto_start} - auto_start_percent: {auto_start_percent}')
             await dimmer.dimToPercent(0)
         
         await asyncio.sleep(_sleep_time)
-
-async def clear_oled():
-    my_print("Init clear_oled")
-    while True:
-        await asyncio.sleep(5)
-        if oled_enabled and time.ticks_ms() - last_print > 30000:
-            oled.fill(0)
-            oled.show()
-
-async def receive_espnow():
-    #global e
-    import aioespnow
-    await event_wifi_connected.wait()
-    e = aioespnow.AIOESPNow()  # Returns AIOESPNow enhanced with async support
-    e.active(True)
-    broadcast = b'\xff\xff\xff\xff\xff\xff'
-    try:
-        e.add_peer(broadcast)
-    except Exception as ex:
-        print(f'Add peer: {ex}')
+        
     
-    print("Listen ESPNOW")
-    print(f"WIFI channel: {wifi.channel()}")
-    async for mac, msg in e:
-        print(f'Echo: {msg} - {str(msg,"UTF-8")}')
-        if str(msg,"UTF-8") == "PING":
-            print("PING")
-            try:
-                e.add_peer(mac)
-            except Exception as ex:
-                print(f'Add peer {mac}: {ex}')
-            try:
-                await e.asend(mac, "PONG",False)
-            except Exception as ex:
-                print(f'Sent to {mac}: {ex}')
-        
-        if str(msg,"UTF-8") in ["ON","1"]:
-            setSeconds()
-            my_print("on ESPNOW")
-        elif str(msg,"UTF-8") == "CH":
-            try:
-                e.add_peer(mac)
-            except Exception as ex:
-                print(f'Add peer {mac}: {ex}')
-            try:
-                await e.asend(mac, str(wifi.channel()),False)
-            except Exception as ex:
-                print(f'Sent to {mac}: {ex}')
-
-        #elif str(msg,"UTF-8") == "1":
-        #    print("on")
-        
-        elif str(msg,"UTF-8") == "0":
-            print("off")
-        else:
-            print(str(msg,"UTF-8"))
-
-
 
 async def main():
     t_connect = asyncio.create_task(wifi.check_and_connect())
@@ -935,19 +854,14 @@ async def main():
     
     t_motion = None 
     t_inactivity = None
-
     t_update_ntp = None #asyncio.create_task(ntp.update_ntp())
-    t_touch = None
-    t_touch = asyncio.create_task(read_touch())
+
     #t_read_pulse_in = asyncio.create_task(read_pulse_in())
     #t_print_pulse_in = asyncio.create_task(print_pulse_in())
-    t_clear_oled = None
-    t_receive_espnow = None
+
     while True:
         await asyncio.sleep(1)
         #gc.collect()
-        
-        
         if t_process_ir_queue is None or t_process_ir_queue.done():
             t_process_ir_queue = None
             print("restart task t_process_ir_queue")
@@ -1002,16 +916,7 @@ async def main():
         #if t_process_queue.done():
         #    print("restart task t_process_queue")
         #    t_process_queue = asyncio.create_task(process_queue(queue))
-        if t_clear_oled is None or t_clear_oled.done():
-            t_clear_oled = None
-            print("restart task t_clear_oled")
-            t_clear_oled = asyncio.create_task(clear_oled())
-
-        if t_receive_espnow is None or t_receive_espnow.done():
-            t_receive_espnow = None
-            print("restart task t_receive_espnow")
-            t_receive_espnow = asyncio.create_task(receive_espnow())
-
+        
         await asyncio.sleep(30)
 
 try:

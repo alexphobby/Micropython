@@ -1,4 +1,4 @@
-from machine import Pin,PWM,Timer,ADC
+
 from time import sleep,localtime
 import asyncio
 import esp32
@@ -33,9 +33,9 @@ print(presence.value())
 
 if presence.value() == 1:
     print("present")
-    led.value(1)
-    sleep(0.1)
-    led.value(0)
+    #led.value(1)
+    #sleep(0.1)
+    #led.value(0)
     import network
     import espnow
     sta = network.WLAN(network.WLAN.IF_STA)  # Or network.WLAN.IF_AP
@@ -46,7 +46,7 @@ if presence.value() == 1:
     e.add_peer(broadcast)
 
     e.send(broadcast,"ON")
-    deepsleep(1000)
+    deepsleep(deepsleep_time)
 else:
     print("absent")
     #e.send(broadcast,"OFF")

@@ -3,15 +3,11 @@
 #esp.osdebug(None)
 #import webrepl
 #webrepl.start()
-#from time import sleep
-
-#sleep(5)
-#import test_sleep
-#import test_uart
 from machine import Pin,PWM,Timer,ADC
-debug_pin = Pin(39, mode = Pin.IN, pull = Pin.PULL_DOWN)
-if debug_pin.value() != 1:
-    print("import")
-    import presence_espnow
-else:
-    print("debug")
+from time import sleep
+debug_pin = Pin(39, mode = Pin.IN,pull=Pin.PULL_DOWN)
+
+ 
+if debug_pin.value() == 0:
+    import espnow_transceiver_as
+
